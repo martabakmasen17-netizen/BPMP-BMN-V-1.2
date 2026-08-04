@@ -7,9 +7,10 @@ import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
   Bell, Search, User, Shield, Menu, ChevronDown, Check, CheckSquare, LogOut, AlertTriangle, X,
-  ArrowDownLeft, ArrowUpRight, ShieldAlert, UserPlus, Info, ChevronRight
+  ArrowDownLeft, ArrowUpRight, ShieldAlert, UserPlus, Info, ChevronRight, Lightbulb
 } from 'lucide-react';
 import { ActiveTab, SystemNotification, UserAccount } from '../types';
+import PanduanModal from './PanduanModal';
 
 interface NavbarProps {
   activeTab: ActiveTab;
@@ -82,6 +83,7 @@ export default function Navbar({
 }: NavbarProps) {
   const [showNotificationPopover, setShowNotificationPopover] = useState(false);
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
+  const [showPanduanModal, setShowPanduanModal] = useState(false);
 
   const getPageTitle = () => {
     switch (activeTab) {
@@ -221,6 +223,21 @@ export default function Navbar({
 
       {/* Right Controls */}
       <div className="flex items-center gap-3 sm:gap-4 flex-shrink-0">
+        {/* Panduan Usage Button */}
+        <button
+          onClick={() => {
+            if (!sidebarCollapsed) {
+              setSidebarCollapsed(true);
+            }
+            setShowPanduanModal(true);
+          }}
+          className="flex items-center gap-1.5 px-3 py-1.5 bg-amber-50 hover:bg-amber-100/90 text-amber-800 border border-amber-200/90 rounded-xl text-xs font-bold transition-all cursor-pointer shadow-2xs hover:shadow-xs"
+          title="Panduan Penggunaan Aplikasi"
+        >
+          <Lightbulb className="w-4 h-4 text-amber-600 animate-pulse" />
+          <span className="hidden sm:inline">Panduan</span>
+        </button>
+
         {/* Active Profile Info */}
         <div className="flex items-center gap-2">
           <div className="w-8 h-8 rounded-xl bg-blue-50 text-blue-700 border border-blue-100 flex items-center justify-center font-bold text-xs">
@@ -408,6 +425,12 @@ export default function Navbar({
           </>
         )}
       </AnimatePresence>
+
+      {/* Panduan Penggunaan Modal */}
+      <PanduanModal
+        isOpen={showPanduanModal}
+        onClose={() => setShowPanduanModal(false)}
+      />
 
     </header>
   );

@@ -19,10 +19,14 @@ import {
   PackageCheck,
   FolderTree,
   Tag,
-  AlertCircle
+  AlertCircle,
+  FileSpreadsheet,
+  Printer,
+  Download
 } from 'lucide-react';
 import { Barang, Kategori, Supplier, Satuan } from '../types';
 import ImagePicker from './ImagePicker';
+import ExportConfirmModal from './ExportConfirmModal';
 
 interface BarangViewProps {
   barang: Barang[];
@@ -58,7 +62,26 @@ export default function BarangView({
   const [showAddModal, setShowAddModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [showDetailModal, setShowDetailModal] = useState(false);
+  const [showExportModal, setShowExportModal] = useState(false);
   const [activeItem, setActiveItem] = useState<Barang | null>(null);
+
+  const executeExportSpreadsheet = (data: Barang[], summaryText: string) => {
+    const headers = 'Kode Barang,Nama Barang,Kategori,Supplier,Satuan,Lokasi Rak,Stok Sekarang,Stok Minimum\n';
+    const rows = data
+      .map(
+        b =>
+          `"${b.id}","${b.nama}","${b.kategori}","${b.supplier}","${b.satuan}","${b.lokasiRak}",${b.stokSekarang},${b.stokMin}`
+      )
+      .join('\n');
+    const csvContent = 'data:text/csv;charset=utf-8,' + encodeURIComponent(headers + rows);
+
+    const link = document.createElement('a');
+    link.setAttribute('href', csvContent);
+    link.setAttribute('download', `Katalog_Barang_BMN_BPMP_Sumsel_${new Date().toISOString().slice(0, 10)}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
 
   // Form states
   const [formData, setFormData] = useState({
@@ -254,35 +277,43 @@ export default function BarangView({
         </div>
 
         {/* Create Action */}
-        {!isReadOnly && (
-          <div className="w-full md:w-auto flex flex-col md:flex-row items-center gap-2">
-            {currentUserRole === 'Administrator' && (
+        <div className="w-full md:w-auto flex flex-col md:flex-row items-center gap-2">
+          <button
+            onClick={() => setShowExportModal(true)}
+            className="w-full md:w-auto flex items-center justify-center gap-1.5 px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-bold shadow-sm transition-all cursor-pointer"
+          >
+            <Download className="w-4 h-4 text-green-400" /> Ekspor Data (.csv)
+          </button>
+          {!isReadOnly && (
+            <>
+              {currentUserRole === 'Administrator' && (
+                <button
+                  onClick={() => {
+                    const fileInput = document.createElement('input');
+                    fileInput.type = 'file';
+                    fileInput.accept = '.csv';
+                    fileInput.onchange = (e: any) => {
+                      const file = e.target.files[0];
+                      if (file) {
+                        onImportCsv && onImportCsv(file);
+                      }
+                    };
+                    fileInput.click();
+                  }}
+                  className="w-full md:w-auto flex items-center justify-center gap-1.5 px-4 py-2 bg-white border border-gray-200 hover:bg-slate-50 text-gray-700 rounded-xl text-xs font-bold shadow-sm transition-all cursor-pointer"
+                >
+                  <Upload className="w-4 h-4" /> Import CSV
+                </button>
+              )}
               <button
-                onClick={() => {
-                  const fileInput = document.createElement('input');
-                  fileInput.type = 'file';
-                  fileInput.accept = '.csv';
-                  fileInput.onchange = (e: any) => {
-                    const file = e.target.files[0];
-                    if (file) {
-                      onImportCsv && onImportCsv(file);
-                    }
-                  };
-                  fileInput.click();
-                }}
-                className="w-full md:w-auto flex items-center justify-center gap-1.5 px-4 py-2 bg-white border border-gray-200 hover:bg-slate-50 text-gray-700 rounded-xl text-xs font-bold shadow-sm transition-all cursor-pointer"
+                onClick={handleOpenAdd}
+                className="w-full md:w-auto flex items-center justify-center gap-1.5 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold shadow-sm transition-all cursor-pointer"
               >
-                <Upload className="w-4 h-4" /> Import CSV
+                <Plus className="w-4 h-4" /> Tambah Barang
               </button>
-            )}
-            <button
-              onClick={handleOpenAdd}
-              className="w-full md:w-auto flex items-center justify-center gap-1.5 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold shadow-sm transition-all cursor-pointer"
-            >
-              <Plus className="w-4 h-4" /> Tambah Barang
-            </button>
-          </div>
-        )}
+            </>
+          )}
+        </div>
       </div>
 
       {/* Responsive Grid/Table */}
@@ -850,6 +881,19 @@ export default function BarangView({
         </div>
         </div>
       )}
+
+      {/* Export Confirm Modal */}
+      <ExportConfirmModal<Barang>
+        isOpen={showExportModal}
+        onClose={() => setShowExportModal(false)}
+        title="Konfirmasi Ekspor Data Persediaan BMN"
+        description="Filter periode pembuatan/perubahan data barang yang akan diunduh"
+        dataList={filteredBarang}
+        getDateFn={item => item.createdAt || ''}
+        onConfirm={(filteredData, format, summaryText) => {
+          executeExportSpreadsheet(filteredData, summaryText);
+        }}
+      />
     </div>
   );
 }

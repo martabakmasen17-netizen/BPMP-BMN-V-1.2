@@ -158,6 +158,10 @@ export interface Settings {
   bilaStokRendahNotif: boolean;
   bilaStokHabisNotif: boolean;
   konfirmasiOtomatisKeluar?: boolean;
+  uapb?: string;
+  uappbE1?: string;
+  uappbW?: string;
+  kodeUakpb?: string;
 }
 
 export interface Pegawai {

@@ -1361,6 +1361,7 @@ const handler = setTimeout(async () => {
               {activeTab === 'riwayat' && (
                 <RiwayatView
                   riwayat={riwayatList}
+                  barang={barangList}
                   settings={settings}
                   currentUserRole={currentRole}
                   onDeleteRiwayat={handleDeleteRiwayat}

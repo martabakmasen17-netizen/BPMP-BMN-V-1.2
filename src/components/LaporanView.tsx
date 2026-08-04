@@ -3,9 +3,10 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React from 'react';
+import React, { useState } from 'react';
 import { FileSpreadsheet, Printer, AlertTriangle, PackageCheck, Download, Package } from 'lucide-react';
 import { Barang, Riwayat, Settings } from '../types';
+import ExportConfirmModal, { ExportFormat } from './ExportConfirmModal';
 
 interface LaporanViewProps {
   barang: Barang[];
@@ -15,6 +16,9 @@ interface LaporanViewProps {
 }
 
 export default function LaporanView({ barang, riwayat, instituteName, settings }: LaporanViewProps) {
+  const [showBarangExportModal, setShowBarangExportModal] = useState(false);
+  const [showRiwayatExportModal, setShowRiwayatExportModal] = useState(false);
+
   // Calculations
   const totalBarang = barang.length;
   const stokMenipis = barang.filter(b => b.stokSekarang < b.stokMin && b.stokSekarang > 0).length;
@@ -29,7 +33,7 @@ export default function LaporanView({ barang, riwayat, instituteName, settings }
   const jabatanPj = settings?.jabatanPenanggungJawab || 'Administrator / Petugas BMN';
   const nipPj = settings?.nipPenanggungJawab || '-';
 
-  const handlePrintOfficialPDF = () => {
+  const executeBarangPrintOfficialPDF = (data: Barang[], summaryText: string) => {
     const printWindow = window.open('', '_blank');
     if (!printWindow) return;
 
@@ -39,7 +43,9 @@ export default function LaporanView({ barang, riwayat, instituteName, settings }
       year: 'numeric'
     });
 
-    const rows = barang
+    const totalFilteredStok = data.reduce((sum, item) => sum + item.stokSekarang, 0);
+
+    const rows = data
       .map(
         (b, i) => `
         <tr>
@@ -85,7 +91,8 @@ export default function LaporanView({ barang, riwayat, instituteName, settings }
 
           <div class="meta">
             LAPORAN REKAPITULASI PERSEDIAAN BARANG BMN
-            <span>Per Tanggal: ${todayDate}</span>
+            <span>Periode Data: ${summaryText}</span>
+            <span>Per Tanggal Cetak: ${todayDate}</span>
           </div>
 
           <table>
@@ -104,7 +111,7 @@ export default function LaporanView({ barang, riwayat, instituteName, settings }
               ${rows}
               <tr>
                 <td colspan="4" style="border: 1px solid black; padding: 8px; font-weight: bold; text-align: right;">TOTAL VOLUME STOK PERSIDIAAN</td>
-                <td style="border: 1px solid black; padding: 8px; font-weight: bold; text-align: center;">${totalStokUnit}</td>
+                <td style="border: 1px solid black; padding: 8px; font-weight: bold; text-align: center;">${totalFilteredStok}</td>
                 <td style="border: 1px solid black; padding: 8px; font-weight: bold;"></td>
                 <td style="border: 1px solid black; padding: 8px; font-weight: bold;"></td>
               </tr>
@@ -135,9 +142,9 @@ export default function LaporanView({ barang, riwayat, instituteName, settings }
     printWindow.document.close();
   };
 
-  const handleExportSpreadsheet = () => {
+  const executeBarangExportSpreadsheet = (data: Barang[], summaryText: string) => {
     const headers = 'Kode Barang,Nama Barang,Kategori,Supplier,Satuan,Lokasi Rak,Stok Sekarang,Stok Minimum\n';
-    const rows = barang
+    const rows = data
       .map(
         b =>
           `"${b.id}","${b.nama}","${b.kategori}","${b.supplier}","${b.satuan}","${b.lokasiRak}",${b.stokSekarang},${b.stokMin}`
@@ -148,6 +155,24 @@ export default function LaporanView({ barang, riwayat, instituteName, settings }
     const link = document.createElement('a');
     link.setAttribute('href', csvContent);
     link.setAttribute('download', `Laporan_Rekap_Persediaan_BM_BPMP_Sumsel_${new Date().toISOString().slice(0, 10)}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  const executeRiwayatExportSpreadsheet = (data: Riwayat[], summaryText: string) => {
+    const headers = 'ID Transaksi,Tanggal,Tipe Transaksi,Kode Barang,Nama Barang,Jumlah,Petugas,Keterangan\n';
+    const rows = data
+      .map(
+        r =>
+          `"${r.id}","${new Date(r.tanggal).toLocaleString('id-ID')}","${r.tipe}","${r.barangId}","${r.namaBarang}",${r.jumlah},"${r.petugas}","${(r.keterangan || '-').replace(/"/g, '""')}"`
+      )
+      .join('\n');
+    const csvContent = 'data:text/csv;charset=utf-8,' + encodeURIComponent(headers + rows);
+
+    const link = document.createElement('a');
+    link.setAttribute('href', csvContent);
+    link.setAttribute('download', `Laporan_Mutasi_Transaksi_BM_BPMP_Sumsel_${new Date().toISOString().slice(0, 10)}.csv`);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -205,13 +230,13 @@ export default function LaporanView({ barang, riwayat, instituteName, settings }
           </div>
           <div className="flex flex-wrap gap-2 pt-4 border-t border-gray-100">
             <button
-              onClick={handlePrintOfficialPDF}
+              onClick={() => setShowBarangExportModal(true)}
               className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold cursor-pointer"
             >
               <Printer className="w-3.5 h-3.5" /> Cetak PDF (Kop Resmi)
             </button>
             <button
-              onClick={handleExportSpreadsheet}
+              onClick={() => setShowBarangExportModal(true)}
               className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-bold cursor-pointer"
             >
               <Download className="w-3.5 h-3.5 text-green-400" /> Export Excel/CSV
@@ -232,17 +257,44 @@ export default function LaporanView({ barang, riwayat, instituteName, settings }
           </div>
           <div className="flex flex-wrap gap-2 pt-4 border-t border-gray-100">
             <button
-              onClick={() => {
-                alert('Dokumen rekap bulanan diunduh otomatis dalam format Spreadsheet.');
-                handleExportSpreadsheet();
-              }}
+              onClick={() => setShowRiwayatExportModal(true)}
               className="w-full flex items-center justify-center gap-1.5 px-3 py-2 bg-slate-100 hover:bg-slate-200 border border-slate-300 text-slate-700 rounded-xl text-xs font-bold cursor-pointer"
             >
-              <Download className="w-3.5 h-3.5 text-blue-600" /> Unduh Laporan Bulanan (.csv)
+              <Download className="w-3.5 h-3.5 text-blue-600" /> Unduh Laporan Mutasi (.csv / PDF)
             </button>
           </div>
         </div>
       </div>
+
+      {/* Export Confirm Modal untuk Katalog Barang */}
+      <ExportConfirmModal<Barang>
+        isOpen={showBarangExportModal}
+        onClose={() => setShowBarangExportModal(false)}
+        title="Konfirmasi Ekspor Laporan Persediaan BMN"
+        description="Filter periode data atau bulan yang akan dicetak/diunduh"
+        dataList={barang}
+        getDateFn={item => item.createdAt || ''}
+        onConfirm={(filteredData, format, summaryText) => {
+          if (format === 'pdf') {
+            executeBarangPrintOfficialPDF(filteredData, summaryText);
+          } else {
+            executeBarangExportSpreadsheet(filteredData, summaryText);
+          }
+        }}
+      />
+
+      {/* Export Confirm Modal untuk Mutasi Riwayat */}
+      <ExportConfirmModal<Riwayat>
+        isOpen={showRiwayatExportModal}
+        onClose={() => setShowRiwayatExportModal(false)}
+        title="Konfirmasi Ekspor Buku Mutasi Transaksi"
+        description="Filter periode transaksi bulanan atau harian yang akan dicetak/diunduh"
+        dataList={riwayat}
+        getDateFn={item => item.tanggal || ''}
+        onConfirm={(filteredData, format, summaryText) => {
+          executeRiwayatExportSpreadsheet(filteredData, summaryText);
+        }}
+      />
     </div>
   );
 }

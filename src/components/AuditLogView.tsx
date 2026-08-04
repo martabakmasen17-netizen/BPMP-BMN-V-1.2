@@ -6,6 +6,7 @@
 import React, { useState } from 'react';
 import { Search, Shield, RefreshCcw, Trash2, FileSpreadsheet, ShieldAlert, X } from 'lucide-react';
 import { AuditLog, UserAccount } from '../types';
+import ExportConfirmModal, { ExportFormat } from './ExportConfirmModal';
 
 interface AuditLogViewProps {
   logs: AuditLog[];
@@ -19,6 +20,7 @@ export default function AuditLogView({ logs, onClearLogs, onDeleteLogs, currentU
   const [selectedMonth, setSelectedMonth] = useState<string>('all');
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [showDeleteConfirmModal, setShowDeleteConfirmModal] = useState(false);
+  const [showExportModal, setShowExportModal] = useState(false);
 
   const isAdmin = currentUser.role === 'Administrator' || currentUser.username === 'admin';
 
@@ -68,9 +70,9 @@ export default function AuditLogView({ logs, onClearLogs, onDeleteLogs, currentU
     }
   };
 
-  const handleExportCSV = () => {
+  const executeExportCSV = (data: AuditLog[], summaryText: string) => {
     const headers = 'ID Log,Tanggal,Aktor,Role,Aksi,Detail\n';
-    const rows = filteredLogs
+    const rows = data
       .map(
         l =>
           `"${l.id}","${new Date(l.tanggal).toLocaleString('id-ID')}","${l.aktor}","${l.role}","${l.aksi}","${l.detail.replace(/"/g, '""')}"`
@@ -182,7 +184,7 @@ export default function AuditLogView({ logs, onClearLogs, onDeleteLogs, currentU
           )}
 
           <button
-            onClick={handleExportCSV}
+            onClick={() => setShowExportModal(true)}
             className="w-full sm:w-auto flex items-center justify-center gap-1.5 px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-bold shadow-sm transition-all cursor-pointer"
           >
             <FileSpreadsheet className="w-4 h-4 text-green-400" /> Unduh Rekap CSV
@@ -278,6 +280,19 @@ export default function AuditLogView({ logs, onClearLogs, onDeleteLogs, currentU
           </table>
         </div>
       </div>
+
+      {/* Export Confirm Modal */}
+      <ExportConfirmModal<AuditLog>
+        isOpen={showExportModal}
+        onClose={() => setShowExportModal(false)}
+        title="Konfirmasi Ekspor Log Audit Keamanan"
+        description="Pilih rentang bulan atau tanggal log aktivitas yang akan diunduh"
+        dataList={filteredLogs}
+        getDateFn={item => item.tanggal || ''}
+        onConfirm={(filteredData, format, summaryText) => {
+          executeExportCSV(filteredData, summaryText);
+        }}
+      />
     </div>
   );
 }

@@ -13,6 +13,7 @@ import {
 } from 'lucide-react';
 import { Barang, Kategori, Supplier, BarangMasuk, Pegawai } from '../types';
 import QRScannerModal from './QRScannerModal';
+import ExportConfirmModal from './ExportConfirmModal';
 
 interface TransaksiMasukViewProps {
   barangList: Barang[];
@@ -47,6 +48,7 @@ export default function TransaksiMasukView({
   const [selectedMonth, setSelectedMonth] = useState<string>('all');
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [showDeleteConfirmModal, setShowDeleteConfirmModal] = useState(false);
+  const [showExportModal, setShowExportModal] = useState(false);
 
   const isAdmin = currentUserRole === 'Administrator';
 
@@ -283,9 +285,9 @@ export default function TransaksiMasukView({
     }
   };
 
-  const handleExportCSV = () => {
+  const executeExportCSV = (data: BarangMasuk[], summaryText: string) => {
     const headers = 'ID Transaksi,Tanggal,Kode Barang,Nama Barang,Volume,Supplier,Petugas,Catatan\n';
-    const rows = filteredTransaksiList
+    const rows = data
       .map(
         t =>
           `"${t.id}","${new Date(t.tanggal).toLocaleDateString()}","${t.barangId}","${
@@ -919,7 +921,7 @@ export default function TransaksiMasukView({
                 )}
 
                 <button
-                  onClick={handleExportCSV}
+                  onClick={() => setShowExportModal(true)}
                   className="flex items-center gap-1.5 px-2.5 py-1.5 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-bold shadow-sm transition-all cursor-pointer"
                 >
                   <FileSpreadsheet className="w-3.5 h-3.5 text-green-400" /> Export CSV
@@ -1070,6 +1072,19 @@ export default function TransaksiMasukView({
           </div>
         )}
       </div>
+
+      {/* Export Confirm Modal */}
+      <ExportConfirmModal<BarangMasuk>
+        isOpen={showExportModal}
+        onClose={() => setShowExportModal(false)}
+        title="Konfirmasi Ekspor Data Barang Masuk"
+        description="Pilih periode bulan atau hari transaksi barang masuk yang akan diunduh"
+        dataList={filteredTransaksiList}
+        getDateFn={item => item.tanggal || ''}
+        onConfirm={(filteredData, format, summaryText) => {
+          executeExportCSV(filteredData, summaryText);
+        }}
+      />
     </div>
   );
 }
