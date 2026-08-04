@@ -1,0 +1,10 @@
+{
+  "name": "Copy of BPMP Sumatera Selatan Inventory",
+  "description": "Sistem Informasi Monitoring Persediaan Barang (Inventory Management System) untuk BPMP Provinsi Sumatera Selatan berbasis Google Workspace.",
+  "requestFramePermissions": [
+    "camera"
+  ],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}

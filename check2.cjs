@@ -1,0 +1,256 @@
+const fs = require('fs');
+const data = `id;kategoriId;kategori;nama
+000001;1010301001;Alat Tulis;Pena Click G2 Pillot
+000001;1010301002;Tinta Tulis, Tinta Stempel;TINTA CAP PRESS
+000001;1010301003;Penjepit Kertas;NECIS NO.10 KECIL
+000002;1010301003;Penjepit Kertas;ISI NECIS NO. 10
+000003;1010301003;Penjepit Kertas;KLIP KERTAS
+000004;1010301003;Penjepit Kertas;BINDER NO 111
+000005;1010301003;Penjepit Kertas;BINDER NO.155
+000006;1010301003;Penjepit Kertas;BINDER NO. 260
+000020;1010301003;Penjepit Kertas;ISI NECIS TEMBAK T13
+000021;1010301003;Penjepit Kertas;BINDER KLIP 105
+000022;1010301003;Penjepit Kertas;BINDER KLIP 107
+000024;1010301003;Penjepit Kertas;TRIGONAL NO. 3
+000025;1010301003;Penjepit Kertas;TRIGONAL NO. 5
+000026;1010301003;Penjepit Kertas;PEMBATAS KERTAS
+000002;1010301004;Penghapus/Korektor;TIP-EX
+000003;1010301004;Penghapus/Korektor;STABILO
+000001;1010301005;Buku Tulis;BUKU BLOCK NOTE
+000002;1010301005;Buku Tulis;BUKU FOLIO ISI 200 LBR
+000003;1010301005;Buku Tulis;BUKU FOLIO ISI 100 LBR
+000004;1010301005;Buku Tulis;Stabilo
+000005;1010301005;Buku Tulis;LEM Glue Stick
+000006;1010301005;Buku Tulis;Penghapus fiber castle
+000007;1010301005;Buku Tulis;TIP-EX CAIR
+000009;1010301005;Buku Tulis;Buku Folio 100 Lbr
+000001;1010301006;Ordner Dan Map;MAP PLASTIK  JEPIT
+000003;1010301006;Ordner Dan Map;MAP KERTAS POLIO
+000004;1010301006;Ordner Dan Map;MAP ORDNER
+000006;1010301006;Ordner Dan Map;FILE BOX R16
+000010;1010301006;Ordner Dan Map;POCKET SHEET
+000011;1010301006;Ordner Dan Map;MAP Kertas Bermotif Kain
+000012;1010301006;Ordner Dan Map;MAP KANCING SCHOOL BAG
+000013;1010301006;Ordner Dan Map;MAP BPMP
+000014;1010301006;Ordner Dan Map;Paper bag bpmp
+000001;1010301007;Penggaris;MISTAR PLASTIK 30 CM
+000001;1010301008;Cutter (Alat Tulis Kantor);PISAU CUTTER
+000002;1010301008;Cutter (Alat Tulis Kantor);GUNTING KEMBANG BESAR
+000005;1010301008;Cutter (Alat Tulis Kantor);GUNTING SEDANG
+000006;1010301008;Cutter (Alat Tulis Kantor);REFILL MATA PISAU CUTTER
+000007;1010301008;Cutter (Alat Tulis Kantor);Gunting Kertas
+000009;1010301008;Cutter (Alat Tulis Kantor);PIN MAGNET
+000012;1010301008;Cutter (Alat Tulis Kantor);GELAS DAN TUTUP
+000014;1010301008;Cutter (Alat Tulis Kantor);SOLATIP KERTAS
+000015;1010301008;Cutter (Alat Tulis Kantor);PUSH PIN
+000024;1010301008;Cutter (Alat Tulis Kantor);ISOLATIP PIPA
+000027;1010301008;Cutter (Alat Tulis Kantor);ISOLATIF DISPENSER
+000033;1010301008;Cutter (Alat Tulis Kantor);Tumbler
+000036;1010301008;Cutter (Alat Tulis Kantor);Lem Pipa kaleng
+000039;1010301008;Cutter (Alat Tulis Kantor);DOUBLE TAPE 24MM
+000040;1010301008;Cutter (Alat Tulis Kantor);SOUVENIR BPMP
+000041;1010301008;Cutter (Alat Tulis Kantor);Lem Stick
+000042;1010301008;Cutter (Alat Tulis Kantor);Pena Snowman
+000001;1010301010;Alat Perekat;LEM GLUKOL
+000002;1010301010;Alat Perekat;LAK BAN BENING
+000003;1010301010;Alat Perekat;LAK BAN COKLAT
+000005;1010301010;Alat Perekat;DOUBLE TAPE
+000007;1010301010;Alat Perekat;LAKBAN HITAM 2 INCH
+000008;1010301010;Alat Perekat;LAKBAN BENING BESAR
+000001;1010301014;Barang Cetakan;Umbul-umbul
+000003;1010301014;Barang Cetakan;Banner
+000004;1010301014;Barang Cetakan;Impraboard
+000005;1010301014;Barang Cetakan;ID Card
+000006;1010301014;Barang Cetakan;Kertas Kupon
+000007;1010301014;Barang Cetakan;Kertas Label
+000008;1010301014;Barang Cetakan;Kartu Blanko
+000009;1010301014;Barang Cetakan;Papan Nama
+000010;1010301014;Barang Cetakan;Cetakan Frame Lengkap
+000011;1010301014;Barang Cetakan;Photo Booth Kit
+000012;1010301014;Barang Cetakan;Label Kursi
+000001;1010301999;Alat Tulis Kantor Lainnya;SPIDOL WHITE BOARD
+000002;1010301999;Alat Tulis Kantor Lainnya;PENA BALL LINER
+000003;1010301999;Alat Tulis Kantor Lainnya;PENA G-1
+000005;1010301999;Alat Tulis Kantor Lainnya;PENA MEJA PAKAI TALI
+000007;1010301999;Alat Tulis Kantor Lainnya;NAME TAG/BEDGE
+000008;1010301999;Alat Tulis Kantor Lainnya;PELOBANG KERTAS BESAR
+000001;1010302001;Kertas HVS;KERTAS F4 70 GRAM
+000002;1010302001;Kertas HVS;KERTAS A4 70 GRAM
+000003;1010302001;Kertas HVS;KERTAS HVS A4  WARNA
+000005;1010302001;Kertas HVS;KERTAS HVS F4 70 GRAM
+000006;1010302001;Kertas HVS;KERTAS HVS  A4 70 GRAM
+000009;1010302001;Kertas HVS;KERTAS HVS 80 GRAM A4
+000010;1010302001;Kertas HVS;KERTAS HVS 80 GRAM F4
+000011;1010302001;Kertas HVS;Kertas Plano
+000002;1010302002;Berbagai Kertas;KERTAS KAMBING
+000003;1010302002;Berbagai Kertas;KERTAS PHOTO
+000004;1010302002;Berbagai Kertas;KERTAS STIKER
+000005;1010302002;Berbagai Kertas;KERTAS KULIT KAMBING
+000006;1010302002;Berbagai Kertas;POST IT
+000009;1010302002;Berbagai Kertas;Puzzle
+000010;1010302002;Berbagai Kertas;Artpaper/Konstruk A3
+000011;1010302002;Berbagai Kertas;Buku Gambar
+000012;1010302002;Berbagai Kertas;Kertas Mewarnai
+000013;1010302002;Berbagai Kertas;Kertas Pembatas
+000001;1010302004;Amplop;AMPLOP POLOS
+000002;1010302004;Amplop;AMPLOP CESING POLIO
+000003;1010302004;Amplop;AMPLOP CESING KWARTO
+000011;1010302004;Amplop;PLASTIK TRANSPARAN
+000004;1010304004;Tinta/Toner Printer;TONER LASER JET 85 A
+000007;1010304004;Tinta/Toner Printer;TONER LASER JET 85 A COMPATIBLE
+000008;1010304004;Tinta/Toner Printer;TONER LASERJET 78 A
+000010;1010304004;Tinta/Toner Printer;CARTRIDGE CANON 810
+000011;1010304004;Tinta/Toner Printer;CARTRIDGE CANON 811
+000012;1010304004;Tinta/Toner Printer;REFILL EPSON T6641 (BK)
+000013;1010304004;Tinta/Toner Printer;REFILL EPSON T6642 (C)
+000014;1010304004;Tinta/Toner Printer;REFILL EPSON T6643 (M)
+000015;1010304004;Tinta/Toner Printer;REFILL EPSON T6644 (Y)
+000023;1010304004;Tinta/Toner Printer;TINTA CANON GI-790 (BK)
+000024;1010304004;Tinta/Toner Printer;TINTA CANON GI-790 (C)
+000025;1010304004;Tinta/Toner Printer;TINTA CANON GI-790 (M)
+000026;1010304004;Tinta/Toner Printer;TINTA CANON GI-790 (Y)
+000027;1010304004;Tinta/Toner Printer;TINTA BROTHER D360  (BK)
+000029;1010304004;Tinta/Toner Printer;TONER  LASERJET 17 A
+000035;1010304004;Tinta/Toner Printer;REFIL EPSON 3110 003 BK
+000001;1010304010;Mouse;MUOSE NIRKABEL
+000003;1010306001;Kabel Listrik;KABEL SERABUT
+000006;1010306001;Kabel Listrik;KABEL AUDIO
+000005;1010306002;Lampu Listrik;BOLA LAMPU XL 23  W
+000006;1010306002;Lampu Listrik;LAMPU EMERGENSI 15 W
+000007;1010306002;Lampu Listrik;Lampu Listrik 5 W
+000008;1010306002;Lampu Listrik;MCB 40A
+000010;1010306002;Lampu Listrik;Isolatif Listrik
+000012;1010306002;Lampu Listrik;Colokan Listrik
+000015;1010306002;Lampu Listrik;BOLA LAMPU XL 12 W
+000016;1010306002;Lampu Listrik;Lampu LED Philip Low 4 Inc
+000017;1010306002;Lampu Listrik;Lampu LED Philip 7 W 3 Inch
+000018;1010306002;Lampu Listrik;Lampu LED Panel  60x60 40 W Philip
+000019;1010306002;Lampu Listrik;Lampu LED Panel  60x60 40 W Inlite
+000020;1010306002;Lampu Listrik;Lampu Jalan
+000003;1010306010;Batu Baterai;BATERAI REMOTE AC TV
+000007;1010306010;Batu Baterai;Baterai AA
+000008;1010306010;Batu Baterai;Baterai AAA
+000009;1010306010;Batu Baterai;Remote AC
+000003;1010306999;Alat Listrik Lainnya;KLAM KABEL 10 MM
+000004;1010306999;Alat Listrik Lainnya;KLAM KABEL 17 MM
+000008;1010306999;Alat Listrik Lainnya;BOX MCB   R16
+000011;1010306999;Alat Listrik Lainnya;KLAM KABEL NO.8
+000001;1010309001;Meterai;MATERAI
+000001;1010309999;Perlengkapan Penunjang Kegiatan Kantor Lainnya;RAK JEMURAN
+000002;1010309999;Perlengkapan Penunjang Kegiatan Kantor Lainnya;Tas ransel
+000003;1010309999;Perlengkapan Penunjang Kegiatan Kantor Lainnya;Jaket
+000001;1010399999;Alat/bahan Untuk Kegiatan Kantor Lainnya;SPRAI SELIMUT
+000002;1010305002;Alat-Alat Pel Dan Lap;SERBET TANGAN
+000004;1010305002;Alat-Alat Pel Dan Lap;TISSUE KOTAK
+000005;1010305002;Alat-Alat Pel Dan Lap;TISSUE GULUNG
+000006;1010305002;Alat-Alat Pel Dan Lap;LAP KANEBO
+000007;1010305002;Alat-Alat Pel Dan Lap;KAIN LAP TANGAN GANTUNG
+000009;1010305002;Alat-Alat Pel Dan Lap;KAIN SERBER KOTAK TANGAN
+000011;1010305002;Alat-Alat Pel Dan Lap;PEL LANTAI MICROFIBER
+000012;1010305002;Alat-Alat Pel Dan Lap;SPON CUCI PIRING
+000013;1010305002;Alat-Alat Pel Dan Lap;REFILL TISSU   (NICE)
+000014;1010305002;Alat-Alat Pel Dan Lap;TEMPAT SABUN CAIR
+000001;1010305003;Ember, Slang, Dan Tempat Air Lainnya;EMBER PLASTIK
+000002;1010305003;Ember, Slang, Dan Tempat Air Lainnya;GAYUNG AIR
+000001;1010305004;Keset Dan Tempat Sampah;KESET KAKI
+000003;1010305004;Keset Dan Tempat Sampah;SEROKAN SAMPAH
+000005;1010305004;Keset Dan Tempat Sampah;KOTAK SAMPAH
+000007;1010305004;Keset Dan Tempat Sampah;KESET KAKI KAIN
+000009;1010305004;Keset Dan Tempat Sampah;SEROKAN DORONGAN AIR DARI BAHAN KARET
+000011;1010305004;Keset Dan Tempat Sampah;KOTAK SAMPAH BESAR
+000013;1010305004;Keset Dan Tempat Sampah;KANTONG SAMPAH
+000014;1010305004;Keset Dan Tempat Sampah;Karet Pel Kaca
+000001;1010305005;Kunci, Kran Dan Semprotan;KRAN AIR 1 2 INCIH
+000002;1010305005;Kunci, Kran Dan Semprotan;KRAN AIR 3 4 INCIH
+000001;1010305008;Bahan Kimia Untuk Pembersih;PORSTEK
+000002;1010305008;Bahan Kimia Untuk Pembersih;HANGER
+000003;1010305008;Bahan Kimia Untuk Pembersih;PEMBERSIH KACA CLING
+000004;1010305008;Bahan Kimia Untuk Pembersih;PEMBERSIH LANTAI SOS
+000005;1010305008;Bahan Kimia Untuk Pembersih;PEMBERSIH KEREMIK LANTAI WIPOL
+000006;1010305008;Bahan Kimia Untuk Pembersih;SABUN CUCI PIRING SUNLAIGH
+000007;1010305008;Bahan Kimia Untuk Pembersih;SABUN CUCI TANGAN HAND SOAP
+000012;1010305008;Bahan Kimia Untuk Pembersih;PROTEK/VISAL
+000013;1010305008;Bahan Kimia Untuk Pembersih;KAPUR BARUS
+000001;1010305012;Pengharum Ruangan;BAY PRESH
+000001;1010305999;Perabot Kantor Lainnya;KEMOCENG
+000002;1010305999;Perabot Kantor Lainnya;PISAU MESIN RUMPUT
+000003;1010305999;Perabot Kantor Lainnya;CANGKUL
+000004;1010305999;Perabot Kantor Lainnya;BUSI MESIN RUMPUT
+000006;1010305999;Perabot Kantor Lainnya;PARANG
+000007;1010305999;Perabot Kantor Lainnya;TENGKUIT
+000008;1010305999;Perabot Kantor Lainnya;KUNCI HANDLE PINTU
+000009;1010305999;Perabot Kantor Lainnya;KUNCI LACI
+000010;1010305999;Perabot Kantor Lainnya;SENTER CHARGER
+000011;1010305999;Perabot Kantor Lainnya;BINGKAI FHOTO   A4
+000012;1010305999;Perabot Kantor Lainnya;PISAU MESIN RUMPUT R16
+000021;1010305999;Perabot Kantor Lainnya;TALI RAPIAH R16
+000027;1010305999;Perabot Kantor Lainnya;KIKIR BESAR
+000028;1010305999;Perabot Kantor Lainnya;GANTUNGAN KUNCI KAMAR
+000029;1010305999;Perabot Kantor Lainnya;PAYUNG BESAR LPMP SUMSEL
+000032;1010305999;Perabot Kantor Lainnya;SENDOK MAKAN
+000033;1010305999;Perabot Kantor Lainnya;SANDAL JEPIT
+000034;1010305999;Perabot Kantor Lainnya;Silinder Kunci Pintu
+000035;1010305999;Perabot Kantor Lainnya;Treker Kaki Dua
+000037;1010305999;Perabot Kantor Lainnya;WADAH GULA + KOPI
+000042;1010305999;Perabot Kantor Lainnya;SARUNG BANTAL + GULING VIP
+000045;1010305999;Perabot Kantor Lainnya;Perlengkapan  Gedung Wisma VIP
+000046;1010305999;Perabot Kantor Lainnya;Perlengkapan Gedung Wisma 1
+000047;1010305999;Perabot Kantor Lainnya;Perlengkapan Ruang Rapat Cendrawasih
+000049;1010305999;Perabot Kantor Lainnya;Perlengkapan Ruang Aula Merak
+000050;1010305999;Perabot Kantor Lainnya;Meteran
+000053;1010305999;Perabot Kantor Lainnya;SIKATGIGI ODOL KECIL
+000054;1010305999;Perabot Kantor Lainnya;GULA PASIR
+000057;1010305999;Perabot Kantor Lainnya;Tempat Isolatif
+000061;1010305999;Perabot Kantor Lainnya;sikat gigi odol dan sabun
+000062;1010305999;Perabot Kantor Lainnya;Garpu
+000064;1010305999;Perabot Kantor Lainnya;Sarung Tangan
+000065;1010305999;Perabot Kantor Lainnya;Cangkir Teh
+000067;1010305999;Perabot Kantor Lainnya;Sarung Tangan (Kain)
+000068;1010305999;Perabot Kantor Lainnya;Bendera Merah Putih
+000070;1010305999;Perabot Kantor Lainnya;Handuk
+000071;1010305999;Perabot Kantor Lainnya;Baygon
+000072;1010305999;Perabot Kantor Lainnya;Racun Rumput
+000075;1010305999;Perabot Kantor Lainnya;TEKO AIR
+000076;1010305999;Perabot Kantor Lainnya;BOX/KOTAK TISSUE
+000001;1010501008;Barang Persediaan;Tenda Darurat
+000002;1010501008;Barang Persediaan;School KIT (SMP)
+000003;1010501008;Barang Persediaan;Seragam SMP (Pria)
+000004;1010501008;Barang Persediaan;Seragam SMP (Wanita)
+000006;1010501008;Barang Persediaan;Buku Literasi (Cerita)
+000007;1010501008;Barang Persediaan;Ransel (Student KIT) 2
+000008;1010501008;Barang Persediaan;Celana Olahraga 2
+000009;1010501008;Barang Persediaan;Topi (Student KIT)2
+000010;1010501008;Barang Persediaan;Kaos ( (Student KIT)2
+000011;1010501008;Barang Persediaan;Penghapus Pensil  (Student KIT)2
+000012;1010501008;Barang Persediaan;Buku Tulis Bergaris  (Student KIT)2
+000013;1010501008;Barang Persediaan;Buku Tulis Kotak  (Student KIT)2
+000014;1010501008;Barang Persediaan;Rautan Pensil  (Student KIT)2
+000015;1010501008;Barang Persediaan;Pensil HB  (Student KIT)2
+000016;1010501008;Barang Persediaan;Pulpen Ballpoint  (Student KIT)2
+000018;1010501008;Barang Persediaan;Pengaris 30 Cm  (Student KIT)2
+000019;1010501008;Barang Persediaan;Kotak /Gembok  (Student KIT)2
+000020;1010501008;Barang Persediaan;Buku Gambar (Student KIT)2
+000021;1010501008;Barang Persediaan;Penghapus Papan Tulis (Student KIT)2
+000022;1010501008;Barang Persediaan;Mistar Besar (Student KIT)2
+000023;1010501008;Barang Persediaan;Jangka Besar (Student KIT)2
+000024;1010501008;Barang Persediaan;Spidol (Student KIT)2
+000025;1010501008;Barang Persediaan;Papan Tulis Kapur (Student KIT)2
+000026;1010501008;Barang Persediaan;Whiteboard (Student KIT)2
+000027;1010501008;Barang Persediaan;Globe (Student KIT)2
+000028;1010501008;Barang Persediaan;Kapur Tulis Putih
+000029;1010501008;Barang Persediaan;Kapur Warna Warni (Student KIT)2
+000030;1010501008;Barang Persediaan;Krayon Warna Warni (Student KIT)2
+000001;1010401999;Obat Lainnya (Persediaan Lainnya);OBAT DAN VITAMIN`;
+
+const lines = data.trim().split('\n').slice(1);
+const uniqueCategories = new Set();
+const uniqueIds = new Set();
+lines.forEach(line => {
+    const parts = line.split(';');
+    uniqueCategories.add(parts[1]);
+    uniqueIds.add(`${parts[1]}-${parts[0]}`);
+});
+
+console.log('Total items given:', lines.length);
+console.log('Total unique categories:', uniqueCategories.size);
+console.log('Total unique ids:', uniqueIds.size);
