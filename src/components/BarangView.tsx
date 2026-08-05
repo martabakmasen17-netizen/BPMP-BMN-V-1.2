@@ -179,13 +179,17 @@ export default function BarangView({
       ...prev,
       kategoriId: selected.id,
       kategori: selected.nama,
-      id: `${selected.id}-${nextCode}`
+      id: nextCode
     }));
   };
 
+  const isCodeValidFormat = /^\d{6}$/.test(formData.id || '');
+  const isCodeDuplicate = barang.some(b => b.id === `${formData.kategoriId}-${formData.id}`);
+  const isAddFormValid = formData.nama && isCodeValidFormat && !isCodeDuplicate;
+
   const handleAddSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!formData.nama) return;
+    if (!isAddFormValid) return;
     onAddBarang(formData);
     setShowAddModal(false);
   };
@@ -627,15 +631,29 @@ export default function BarangView({
                   </select>
                 </div>
 
-                {/* Auto Kode Barang */}
+                {/* Manual Kode Barang */}
                 <div className="space-y-1">
-                  <label className="block text-gray-500">Kode Barang (Otomatis per Kategori)</label>
-                  <input
-                    type="text"
-                    disabled
-                    value={formData.id}
-                    className="w-full px-3 py-2 bg-slate-100 border border-slate-200 rounded-xl font-mono font-bold text-blue-700 cursor-not-allowed"
-                  />
+                  <label className="block text-gray-500">Kode Barang (6 Angka) *</label>
+                  <div className="flex rounded-xl overflow-hidden shadow-sm border focus-within:ring-2 focus-within:ring-blue-600 focus-within:border-blue-600 transition-colors">
+                    <span className="flex items-center px-3 bg-slate-100 text-slate-500 border-r border-gray-200 font-mono text-sm">
+                      {formData.kategoriId}-
+                    </span>
+                    <input
+                      type="text"
+                      maxLength={6}
+                      required
+                      value={formData.id}
+                      onChange={e => setFormData({ ...formData, id: e.target.value.replace(/\D/g, '') })}
+                      className="w-full px-3 py-2 outline-none font-mono font-bold text-gray-900"
+                      placeholder="000001"
+                    />
+                  </div>
+                  {formData.id && !isCodeValidFormat && (
+                    <p className="text-red-500 text-[10px] font-bold mt-1">Kode harus persis 6 angka.</p>
+                  )}
+                  {isCodeDuplicate && (
+                    <p className="text-red-500 text-[10px] font-bold mt-1">Kode sudah digunakan di kategori ini!</p>
+                  )}
                 </div>
 
                 {/* Supplier */}
@@ -743,7 +761,8 @@ export default function BarangView({
               </button>
               <button
                 type="submit"
-                className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl cursor-pointer"
+                disabled={!isAddFormValid}
+                className="px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed text-white font-bold rounded-xl cursor-pointer transition-colors"
               >
                 Daftarkan Item
               </button>
