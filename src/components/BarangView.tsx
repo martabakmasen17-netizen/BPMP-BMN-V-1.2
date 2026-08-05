@@ -210,7 +210,7 @@ export default function BarangView({
   const getStockStatusBadge = (current: number, min: number) => {
     if (current === 0) {
       return (
-        <span className="inline-flex items-center gap-1.5 px-2 py-1 rounded-full text-xs font-bold bg-red-100 text-red-700">
+        <span className="inline-flex items-center gap-1.5 px-2 py-1 rounded-full text-xs font-bold bg-red-100 text-red-700 whitespace-nowrap">
           <span className="w-1.5 h-1.5 bg-red-600 rounded-full" />
           Stok Habis (0)
         </span>
@@ -218,27 +218,53 @@ export default function BarangView({
     }
     if (current < min) {
       return (
-        <span className="inline-flex items-center gap-1.5 px-2 py-1 rounded-full text-xs font-bold bg-amber-100 text-amber-700">
+        <span className="inline-flex items-center gap-1.5 px-2 py-1 rounded-full text-xs font-bold bg-amber-100 text-amber-700 whitespace-nowrap">
           <span className="w-1.5 h-1.5 bg-amber-600 rounded-full" />
           Kritis ({current})
         </span>
       );
     }
     return (
-      <span className="inline-flex items-center gap-1.5 px-2 py-1 rounded-full text-xs font-bold bg-green-100 text-green-700">
+      <span className="inline-flex items-center gap-1.5 px-2 py-1 rounded-full text-xs font-bold bg-green-100 text-green-700 whitespace-nowrap">
         <span className="w-1.5 h-1.5 bg-green-600 rounded-full" />
         Aman ({current})
       </span>
     );
   };
 
+  const visiblePages = (() => {
+    const delta = 1;
+    const range = [];
+    const rangeWithDots = [];
+    let l;
+
+    for (let i = 1; i <= totalPages; i++) {
+      if (i === 1 || i === totalPages || (i >= currentPage - delta && i <= currentPage + delta)) {
+        range.push(i);
+      }
+    }
+
+    for (let i of range) {
+      if (l) {
+        if (i - l === 2) {
+          rangeWithDots.push(l + 1);
+        } else if (i - l !== 1) {
+          rangeWithDots.push('...');
+        }
+      }
+      rangeWithDots.push(i);
+      l = i;
+    }
+    return rangeWithDots;
+  })();
+
   return (
     <div className="space-y-4">
       {/* Search and Filters Bar */}
-      <div className="bg-white p-4 rounded-2xl border border-gray-200 shadow-sm flex flex-col md:flex-row gap-3 items-center justify-between">
-        <div className="w-full md:w-auto flex-1 flex flex-wrap gap-2 items-center">
+      <div className="bg-white p-4 rounded-2xl border border-gray-200 shadow-sm flex flex-col md:flex-row gap-3 items-start md:items-center justify-between">
+        <div className="w-full flex-1 flex flex-col md:flex-row flex-wrap gap-2 md:items-center">
           {/* Search */}
-          <div className="relative w-full max-w-xs">
+          <div className="relative w-full md:max-w-xs">
             <Search className="w-4 h-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
             <input
               type="text"
@@ -253,7 +279,7 @@ export default function BarangView({
           <select
             value={selectedCategory}
             onChange={e => setSelectedCategory(e.target.value)}
-            className="px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium focus:outline-none focus:ring-2 focus:ring-blue-600"
+            className="w-full md:w-auto px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium focus:outline-none focus:ring-2 focus:ring-blue-600"
           >
             <option value="">Semua Kategori</option>
             {kategoriList.map(cat => (
@@ -267,7 +293,7 @@ export default function BarangView({
           <select
             value={stockFilter}
             onChange={e => setStockFilter(e.target.value as any)}
-            className="px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium focus:outline-none focus:ring-2 focus:ring-blue-600"
+            className="w-full md:w-auto px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium focus:outline-none focus:ring-2 focus:ring-blue-600"
           >
             <option value="all">Semua Level Stok</option>
             <option value="safe">Stok Aman</option>
@@ -277,7 +303,7 @@ export default function BarangView({
         </div>
 
         {/* Create Action */}
-        <div className="w-full md:w-auto flex flex-col md:flex-row items-center gap-2">
+        <div className="w-full md:w-auto flex flex-col sm:flex-row items-center gap-2 mt-1 md:mt-0 pt-3 md:pt-0 border-t md:border-0 border-gray-100">
           <button
             onClick={() => setShowExportModal(true)}
             className="w-full md:w-auto flex items-center justify-center gap-1.5 px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-bold shadow-sm transition-all cursor-pointer"
@@ -374,10 +400,12 @@ export default function BarangView({
                         {item.supplier}
                       </div>
                     </td>
-                    <td className="p-4">
-                      <span className="text-gray-600 font-bold bg-slate-50 border border-slate-200 px-1.5 py-0.5 rounded text-[10px]">
-                        {item.lokasiRak}
-                      </span>
+                    <td className="p-4 max-w-[100px] sm:max-w-[140px]">
+                      <div className="flex items-center">
+                        <span className="text-slate-600 font-bold bg-slate-50 border border-slate-200 px-2 py-1 rounded-md text-[10px] truncate w-full shadow-2xs" title={item.lokasiRak}>
+                          {item.lokasiRak}
+                        </span>
+                      </div>
                     </td>
                     <td className="p-4 text-center">
                       {getStockStatusBadge(item.stokSekarang, item.stokMin)}
@@ -424,35 +452,40 @@ export default function BarangView({
 
         {/* Pagination Bar */}
         {totalPages > 1 && (
-          <div className="p-4 bg-slate-50 border-t border-gray-100 flex items-center justify-between">
-            <span className="text-xs text-gray-500 font-medium">
-              Menampilkan {paginatedBarang.length} dari {filteredBarang.length} item
+          <div className="p-4 bg-slate-50 border-t border-gray-100 flex flex-col sm:flex-row items-center justify-between gap-4">
+            <span className="text-xs text-gray-500 font-medium text-center sm:text-left">
+              Menampilkan <strong className="text-slate-700">{paginatedBarang.length}</strong> dari <strong className="text-slate-700">{filteredBarang.length}</strong> item
             </span>
-            <div className="flex items-center gap-1">
+            <div className="flex items-center gap-1.5 w-full sm:w-auto justify-center">
               <button
                 disabled={currentPage === 1}
                 onClick={() => handlePageChange(currentPage - 1)}
-                className="p-1 border border-gray-200 rounded-lg text-gray-500 hover:bg-white disabled:opacity-50 cursor-pointer"
+                className="p-1.5 border border-gray-200 rounded-lg text-gray-500 hover:bg-white disabled:opacity-50 cursor-pointer transition-colors shrink-0"
               >
                 <ChevronLeft className="w-4 h-4" />
               </button>
-              {Array.from({ length: totalPages }).map((_, idx) => (
-                <button
-                  key={idx}
-                  onClick={() => handlePageChange(idx + 1)}
-                  className={`px-2.5 py-1 text-xs rounded-lg font-bold border cursor-pointer ${
-                    currentPage === idx + 1
-                      ? 'bg-blue-600 text-white border-blue-600'
-                      : 'border-gray-200 bg-white text-gray-700 hover:bg-slate-50'
-                  }`}
-                >
-                  {idx + 1}
-                </button>
-              ))}
+              <div className="flex items-center gap-1">
+                {visiblePages.map((page, idx) => (
+                  <button
+                    key={idx}
+                    disabled={page === '...'}
+                    onClick={() => page !== '...' && handlePageChange(page as number)}
+                    className={`px-3 py-1.5 text-xs rounded-lg font-bold border transition-colors shrink-0 ${
+                      page === '...'
+                        ? 'border-transparent bg-transparent text-gray-400 cursor-default px-1.5'
+                        : currentPage === page
+                        ? 'bg-blue-600 text-white border-blue-600 shadow-sm cursor-pointer'
+                        : 'border-gray-200 bg-white text-gray-700 hover:bg-slate-50 cursor-pointer hover:border-gray-300'
+                    }`}
+                  >
+                    {page}
+                  </button>
+                ))}
+              </div>
               <button
                 disabled={currentPage === totalPages}
                 onClick={() => handlePageChange(currentPage + 1)}
-                className="p-1 border border-gray-200 rounded-lg text-gray-500 hover:bg-white disabled:opacity-50 cursor-pointer"
+                className="p-1.5 border border-gray-200 rounded-lg text-gray-500 hover:bg-white disabled:opacity-50 cursor-pointer transition-colors shrink-0"
               >
                 <ChevronRight className="w-4 h-4" />
               </button>

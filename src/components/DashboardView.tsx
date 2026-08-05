@@ -662,15 +662,18 @@ export default function DashboardView({
             <div className="py-6 text-center text-xs text-[#6B7280]">Belum ada aktivitas tercatat</div>
           ) : (
             recentLogs.slice(0, 5).map(log => (
-              <div key={log.id} className="py-3 flex items-start gap-3 text-xs">
-                <div className="min-w-[120px] text-[#6B7280] font-medium">
-                  {new Date(log.tanggal).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })} - {new Date(log.tanggal).toLocaleDateString('id-ID')}
+              <div key={log.id} className="py-3 flex flex-col sm:flex-row items-start gap-1 sm:gap-3 text-xs">
+                <div className="w-full sm:min-w-[120px] sm:w-auto text-[#6B7280] font-medium flex items-center justify-between sm:justify-start">
+                  <span>{new Date(log.tanggal).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })} - {new Date(log.tanggal).toLocaleDateString('id-ID')}</span>
+                  <span className="sm:hidden font-bold text-[#111827] bg-slate-100 px-1.5 py-0.5 rounded uppercase text-[9px]">{log.aksi}</span>
                 </div>
-                <div className="flex-1">
-                  <span className="font-bold text-[#111827] mr-1.5">{log.aktor}</span>
-                  <span className="px-1.5 py-0.5 bg-slate-100 text-slate-700 font-medium rounded text-[9px] mr-1.5 uppercase">{log.role}</span>
-                  <span className="text-[#111827] font-medium">{log.aksi}: </span>
-                  <span className="text-[#6B7280]">{log.detail}</span>
+                <div className="flex-1 min-w-0 w-full mt-1 sm:mt-0">
+                  <div className="flex flex-wrap items-center gap-1.5 mb-0.5">
+                    <span className="font-bold text-[#111827]">{log.aktor}</span>
+                    <span className="px-1.5 py-0.5 bg-slate-100 text-slate-700 font-bold rounded text-[9px] uppercase tracking-wider">{log.role}</span>
+                    <span className="hidden sm:inline text-[#111827] font-bold">{log.aksi}</span>
+                  </div>
+                  <p className="text-[#6B7280] leading-relaxed break-words">{log.detail}</p>
                 </div>
               </div>
             ))

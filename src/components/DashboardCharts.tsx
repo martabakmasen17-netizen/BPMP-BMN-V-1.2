@@ -330,16 +330,16 @@ export default function DashboardCharts({
 
         {/* 2. DONUT / PIE CHART MODE */}
         {chartMode === 'donut' && (
-          <div className="w-full h-72 sm:h-80 flex flex-col md:flex-row items-center justify-center gap-4">
-            <div className="w-full md:w-2/3 h-64 relative">
+          <div className="w-full flex flex-col md:flex-row items-center justify-center gap-6 md:gap-4 md:h-80">
+            <div className="w-full h-56 sm:h-64 md:w-2/3 relative shrink-0">
               <ResponsiveContainer width="100%" height="100%">
                 <PieChart>
                   <Pie
                     data={chartData}
                     cx="50%"
                     cy="50%"
-                    innerRadius={65}
-                    outerRadius={100}
+                    innerRadius={60}
+                    outerRadius={95}
                     paddingAngle={3}
                     dataKey="totalStok"
                     nameKey="nama"

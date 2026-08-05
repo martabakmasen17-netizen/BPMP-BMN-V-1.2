@@ -204,25 +204,25 @@ export default function Navbar({
   };
 
   return (
-    <header className="bg-white border-b border-gray-200 h-16 sticky top-0 px-4 md:px-6 flex items-center justify-between z-20">
+    <header className="bg-white border-b border-gray-200 h-16 sticky top-0 px-3 md:px-6 flex items-center justify-between z-20 shadow-xs">
       {/* Title & Breadcrumbs */}
-      <div className="flex items-center gap-3 min-w-0 flex-1 sm:flex-initial">
+      <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
         <button
           onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
-          className="p-1.5 hover:bg-gray-100 rounded-lg text-gray-600 md:hidden flex-shrink-0"
+          className="p-1.5 sm:p-2 -ml-1 sm:ml-0 hover:bg-slate-100 rounded-xl text-slate-600 md:hidden flex-shrink-0 transition-colors cursor-pointer"
         >
-          <Menu className="w-5 h-5" />
+          <Menu className="w-5 h-5 sm:w-5 sm:h-5" />
         </button>
-        <div className="flex flex-col min-w-0">
+        <div className="flex flex-col min-w-0 flex-1">
           {getBreadcrumbs()}
-          <h1 className="text-sm sm:text-lg font-bold text-gray-900 leading-tight truncate max-w-[115px] xs:max-w-[165px] sm:max-w-none" title={getPageTitle()}>
+          <h1 className="text-[13px] xs:text-sm sm:text-lg font-bold text-slate-900 leading-tight truncate" title={getPageTitle()}>
             {getPageTitle()}
           </h1>
         </div>
       </div>
 
       {/* Right Controls */}
-      <div className="flex items-center gap-3 sm:gap-4 flex-shrink-0">
+      <div className="flex items-center gap-1.5 sm:gap-3 flex-shrink-0 pl-2">
         {/* Panduan Usage Button */}
         <button
           onClick={() => {
@@ -231,27 +231,12 @@ export default function Navbar({
             }
             setShowPanduanModal(true);
           }}
-          className="flex items-center gap-1.5 px-3 py-1.5 bg-amber-50 hover:bg-amber-100/90 text-amber-800 border border-amber-200/90 rounded-xl text-xs font-bold transition-all cursor-pointer shadow-2xs hover:shadow-xs"
+          className="flex items-center gap-1.5 p-1.5 sm:px-3 sm:py-1.5 bg-amber-50 hover:bg-amber-100/90 text-amber-800 border border-amber-200/90 rounded-xl text-xs font-bold transition-all cursor-pointer shadow-2xs hover:shadow-xs"
           title="Panduan Penggunaan Aplikasi"
         >
-          <Lightbulb className="w-4 h-4 text-amber-600 animate-pulse" />
+          <Lightbulb className="w-4 h-4 sm:w-4 sm:h-4 text-amber-600 animate-pulse" />
           <span className="hidden sm:inline">Panduan</span>
         </button>
-
-        {/* Active Profile Info */}
-        <div className="flex items-center gap-2">
-          <div className="w-8 h-8 rounded-xl bg-blue-50 text-blue-700 border border-blue-100 flex items-center justify-center font-bold text-xs">
-            {currentUser ? currentUser.nama.charAt(0).toUpperCase() : 'P'}
-          </div>
-          <div className="hidden md:flex flex-col text-left">
-            <span className="text-xs font-bold text-gray-900 truncate max-w-[120px]">
-              {currentUser ? currentUser.nama : 'Petugas BMN'}
-            </span>
-            <span className="text-[10px] text-gray-500 font-semibold uppercase tracking-wider">
-              {currentUser ? currentUser.role : 'Petugas'}
-            </span>
-          </div>
-        </div>
 
         {/* Notifications */}
         <div className="relative">
@@ -259,12 +244,12 @@ export default function Navbar({
             onClick={() => {
               setShowNotificationPopover(!showNotificationPopover);
             }}
-            className="p-2 hover:bg-slate-50 border border-slate-200 rounded-xl text-slate-600 relative transition-all cursor-pointer"
+            className="p-1.5 sm:p-2 hover:bg-slate-50 border border-slate-200 rounded-xl text-slate-600 relative transition-all cursor-pointer bg-white shadow-2xs hover:shadow-xs"
             aria-label="Notifikasi"
           >
-            <Bell className="w-4 h-4" />
+            <Bell className="w-4 h-4 sm:w-4.5 sm:h-4.5" />
             {unreadCount > 0 && (
-              <span className="absolute top-1 right-1 w-2.5 h-2.5 bg-red-500 rounded-full ring-2 ring-white animate-bounce" />
+              <span className="absolute top-0.5 right-0.5 sm:top-1 sm:right-1 w-2.5 h-2.5 bg-red-500 rounded-full ring-2 ring-white animate-bounce" />
             )}
           </button>
 
@@ -371,12 +356,27 @@ export default function Navbar({
         {/* LOGOUT BUTTON */}
         <button
           onClick={() => setShowLogoutConfirm(true)}
-          className="flex items-center gap-1 px-3 py-1.5 bg-red-50 hover:bg-red-100 text-red-600 border border-red-200 rounded-xl text-xs font-bold transition-all cursor-pointer"
+          className="flex items-center gap-1 p-1.5 sm:px-3 sm:py-1.5 bg-red-50 hover:bg-red-100 text-red-600 border border-red-200 rounded-xl text-xs font-bold transition-all cursor-pointer shadow-2xs hover:shadow-xs"
           title="Keluar Aplikasi"
         >
-          <LogOut className="w-4 h-4" />
+          <LogOut className="w-4 h-4 sm:w-4.5 sm:h-4.5" />
           <span className="hidden sm:inline">Keluar</span>
         </button>
+
+        {/* Active Profile Info */}
+        <div className="flex items-center gap-2 pl-1 sm:pl-2 border-l border-slate-200 ml-1 sm:ml-2">
+          <div className="hidden md:flex flex-col text-right pr-2">
+            <span className="text-xs font-bold text-slate-900 truncate max-w-[120px]">
+              {currentUser ? currentUser.nama : 'Petugas BMN'}
+            </span>
+            <span className="text-[10px] text-slate-500 font-semibold uppercase tracking-wider">
+              {currentUser ? currentUser.role : 'Petugas'}
+            </span>
+          </div>
+          <div className="w-7 h-7 sm:w-9 sm:h-9 rounded-xl bg-gradient-to-br from-indigo-500 to-indigo-600 text-white shadow-sm flex items-center justify-center font-bold text-xs sm:text-sm ring-2 ring-indigo-50 flex-shrink-0">
+            {currentUser ? currentUser.nama.charAt(0).toUpperCase() : 'P'}
+          </div>
+        </div>
       </div>
     
       <AnimatePresence>

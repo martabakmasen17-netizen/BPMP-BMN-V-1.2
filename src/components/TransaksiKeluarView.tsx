@@ -13,6 +13,7 @@ import {
 import { Barang, Kategori, Unit, BarangKeluar, Pegawai } from '../types';
 import QRScannerModal from './QRScannerModal';
 import ExportConfirmModal from './ExportConfirmModal';
+import BarangSearchPicker from './BarangSearchPicker';
 
 interface TransaksiKeluarViewProps {
   barangList: Barang[];
@@ -624,127 +625,15 @@ export default function TransaksiKeluarView({
               ) : (
                 <form onSubmit={handleSubmit} className="space-y-4 text-xs font-medium text-gray-700">
 
-                  {/* STEP 1: KATEGORI & BARANG */}
-                  <div className="p-3.5 bg-slate-50/80 border border-slate-200/80 rounded-xl space-y-3">
-                    {/* 1. Kategori Selection with Live Search */}
-                    <div className="space-y-1.5">
-                      <div className="flex justify-between items-center">
-                        <label className="block text-gray-700 font-bold flex items-center gap-1.5">
-                          <FolderTree className="w-3.5 h-3.5 text-red-600" />
-                          1. Pilih Kategori Barang *
-                        </label>
-                        {selectedCategoryObj && (
-                          <span className="text-[10px] bg-red-100 text-red-800 font-bold px-2 py-0.5 rounded-md font-mono">
-                            {selectedCategoryObj.id}
-                          </span>
-                        )}
-                      </div>
-
-                      {/* Search box for category */}
-                      <div className="relative">
-                        <Search className="w-3.5 h-3.5 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
-                        <input
-                          type="text"
-                          placeholder="Cari nama atau kode kategori (e.g. 1010301001 / ALAT TULIS)..."
-                          value={categorySearch}
-                          onChange={e => setCategorySearch(e.target.value)}
-                          className="w-full pl-8 pr-3 py-1.5 border border-slate-200 bg-white rounded-xl text-xs focus:ring-2 focus:ring-red-600 focus:outline-none"
-                        />
-                      </div>
-
-                      <select
-                        required
-                        value={selectedKategoriId}
-                        onChange={e => handleKategoriChange(e.target.value)}
-                        className="w-full px-3 py-2 border border-slate-200 bg-white rounded-xl focus:ring-2 focus:ring-red-600 focus:outline-none font-bold text-gray-900"
-                      >
-                        {searchableKategoriList.length === 0 ? (
-                          <option value="">(Tidak ditemukan kategori: "{categorySearch}")</option>
-                        ) : (
-                          searchableKategoriList.map(k => (
-                            <option key={k.id} value={k.id}>
-                              [{k.id}] - {k.nama}
-                            </option>
-                          ))
-                        )}
-                      </select>
-                    </div>
-
-                    {/* 2. Item Selection with Live Search */}
-                    <div className="space-y-1.5 pt-2 border-t border-slate-200/60">
-                      <div className="flex justify-between items-center">
-                        <label className="block text-gray-700 font-bold flex items-center gap-1.5">
-                          <Package className="w-3.5 h-3.5 text-red-600" />
-                          2. Pilih Item Barang Keluar *
-                        </label>
-                        <button
-                          type="button"
-                          onClick={() => setIsScannerOpen(true)}
-                          className="text-[10px] text-red-700 hover:underline flex items-center gap-1 font-bold"
-                        >
-                          <QrCode className="w-3 h-3" /> Scan Barcode
-                        </button>
-                      </div>
-
-                      {/* Search box for item */}
-                      <div className="relative">
-                        <Search className="w-3.5 h-3.5 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
-                        <input
-                          type="text"
-                          placeholder="Cari kode atau nama barang dalam kategori ini..."
-                          value={itemSearch}
-                          onChange={e => setItemSearch(e.target.value)}
-                          className="w-full pl-8 pr-3 py-1.5 border border-slate-200 bg-white rounded-xl text-xs focus:ring-2 focus:ring-red-600 focus:outline-none"
-                        />
-                      </div>
-
-                      <select
-                        required
-                        value={selectedBarangId}
-                        onChange={e => handleBarangChange(e.target.value)}
-                        className="w-full px-3 py-2 border border-slate-200 bg-white rounded-xl focus:ring-2 focus:ring-red-600 focus:outline-none font-bold text-gray-900"
-                      >
-                        {searchableBarangList.length === 0 ? (
-                          <option value="">
-                            {filteredBarangList.length === 0 
-                              ? '(Tidak ada barang di kategori ini)' 
-                              : `(Tidak ditemukan barang: "${itemSearch}")`}
-                          </option>
-                        ) : (
-                          searchableBarangList.map(b => (
-                            <option key={b.id} value={b.id}>
-                              [{b.id}] {b.nama} (Stok: {b.stokSekarang} {b.satuan})
-                            </option>
-                          ))
-                        )}
-                      </select>
-                    </div>
-
-                    {/* Live Preview Card of Selected Item */}
-                    {selectedItem && (
-                      <div className="p-3 bg-white border border-red-100 rounded-xl text-[11px] space-y-2 shadow-2xs">
-                        <div className="grid grid-cols-2 gap-2 text-slate-600">
-                          <div>
-                            <span className="text-gray-400 block text-[10px]">Stok Tersedia:</span>
-                            <span className="font-bold text-gray-900 text-xs">
-                              {selectedItem.stokSekarang} {selectedItem.satuan}
-                            </span>
-                          </div>
-                          <div>
-                            <span className="text-gray-400 block text-[10px]">Lokasi Rak:</span>
-                            <span className="font-bold text-slate-800 text-xs">{selectedItem.lokasiRak || 'Gudang Utama'}</span>
-                          </div>
-                        </div>
-
-                        {selectedItem.stokSekarang < selectedItem.stokMin && (
-                          <div className="p-2 bg-red-50 text-red-700 text-[10px] rounded-lg border border-red-200 flex items-center gap-1.5">
-                            <AlertTriangle className="w-3.5 h-3.5 text-red-600 shrink-0" />
-                            Peringatan: Stok berada di bawah batas minimum ({selectedItem.stokMin} {selectedItem.satuan})
-                          </div>
-                        )}
-                      </div>
-                    )}
-                  </div>
+                  {/* STEP 1 & 2: KATEGORI & BARANG */}
+                  <BarangSearchPicker
+                    barangList={barangList}
+                    kategoriList={kategoriList}
+                    selectedBarangId={selectedBarangId}
+                    onSelectBarang={(b) => handleBarangChange(b.id)}
+                    onOpenScanner={() => setIsScannerOpen(true)}
+                    mode="keluar"
+                  />
 
                   {/* STEP 2: VOLUME & RECEIVER */}
                   <div className="space-y-3">
