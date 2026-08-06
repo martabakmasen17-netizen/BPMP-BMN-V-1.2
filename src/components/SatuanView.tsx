@@ -6,6 +6,7 @@
 import React, { useState } from 'react';
 import { Plus, Edit2, Trash2, X, Scale } from 'lucide-react';
 import { Satuan } from '../types';
+import ConfirmationModal from './ConfirmationModal';
 
 interface SatuanViewProps {
   satuanList: Satuan[];
@@ -24,6 +25,9 @@ export default function SatuanView({
 }: SatuanViewProps) {
   const [showAddModal, setShowAddModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
+  const [showConfirmAddModal, setShowConfirmAddModal] = useState(false);
+  const [showConfirmDeleteModal, setShowConfirmDeleteModal] = useState(false);
+  const [satuanToDelete, setSatuanToDelete] = useState<Satuan | null>(null);
   const [formData, setFormData] = useState({ nama: '', keterangan: '' });
   const [editFormData, setEditFormData] = useState<Partial<Satuan>>({});
 
@@ -36,9 +40,27 @@ export default function SatuanView({
 
   const handleAddSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!formData.nama) return;
+    if (!formData.nama.trim()) return;
+    setShowConfirmAddModal(true);
+  };
+
+  const handleConfirmAdd = () => {
     onAddSatuan(formData);
+    setShowConfirmAddModal(false);
     setShowAddModal(false);
+  };
+
+  const handleDeleteClick = (s: Satuan) => {
+    setSatuanToDelete(s);
+    setShowConfirmDeleteModal(true);
+  };
+
+  const handleConfirmDelete = () => {
+    if (satuanToDelete) {
+      onDeleteSatuan(satuanToDelete.id);
+      setShowConfirmDeleteModal(false);
+      setSatuanToDelete(null);
+    }
   };
 
   const handleOpenEdit = (s: Satuan) => {
@@ -96,12 +118,9 @@ export default function SatuanView({
                   <Edit2 className="w-3.5 h-3.5" />
                 </button>
                 <button
-                  onClick={() => {
-                    if (confirm(`Apakah Anda yakin ingin menghapus satuan "${s.nama}"?`)) {
-                      onDeleteSatuan(s.id);
-                    }
-                  }}
+                  onClick={() => handleDeleteClick(s)}
                   className="p-1 hover:bg-red-50 text-red-600 rounded cursor-pointer"
+                  title="Hapus Satuan"
                 >
                   <Trash2 className="w-3.5 h-3.5" />
                 </button>
@@ -212,6 +231,42 @@ export default function SatuanView({
           </div>
         </div>
       )}
+      {/* Confirmation Modal for Adding Satuan */}
+      <ConfirmationModal
+        isOpen={showConfirmAddModal}
+        onClose={() => setShowConfirmAddModal(false)}
+        onConfirm={handleConfirmAdd}
+        title="Konfirmasi Tambah Satuan Ukuran"
+        subtitle="Satuan ukuran baru akan didaftarkan untuk penghitungan kuantitas fisik BMN."
+        variant="primary"
+        confirmLabel="Ya, Tambahkan Satuan"
+        cancelLabel="Kembali & Cek"
+        details={[
+          { label: 'Nama Satuan', value: formData.nama },
+          { label: 'Keterangan / Deskripsi', value: formData.keterangan || '-' }
+        ]}
+      />
+
+      {/* Confirmation Modal for Deleting Satuan */}
+      <ConfirmationModal
+        isOpen={showConfirmDeleteModal && !!satuanToDelete}
+        onClose={() => {
+          setShowConfirmDeleteModal(false);
+          setSatuanToDelete(null);
+        }}
+        onConfirm={handleConfirmDelete}
+        title="Konfirmasi Hapus Satuan Ukuran"
+        subtitle={satuanToDelete ? `Apakah Anda yakin ingin menghapus satuan "${satuanToDelete.nama}"?` : ''}
+        variant="danger"
+        confirmLabel="Ya, Hapus Satuan"
+        cancelLabel="Batal"
+        warningNote="Peringatan: Satuan ukuran ini akan dihapus dari daftar master satuan persediaan."
+        details={satuanToDelete ? [
+          { label: 'ID Satuan', value: satuanToDelete.id },
+          { label: 'Nama Satuan', value: satuanToDelete.nama },
+          { label: 'Keterangan', value: satuanToDelete.keterangan || '-' }
+        ] : []}
+      />
     </div>
   );
 }

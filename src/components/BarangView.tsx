@@ -27,6 +27,7 @@ import {
 import { Barang, Kategori, Supplier, Satuan } from '../types';
 import ImagePicker from './ImagePicker';
 import ExportConfirmModal from './ExportConfirmModal';
+import ConfirmationModal from './ConfirmationModal';
 
 interface BarangViewProps {
   barang: Barang[];
@@ -63,6 +64,9 @@ export default function BarangView({
   const [showEditModal, setShowEditModal] = useState(false);
   const [showDetailModal, setShowDetailModal] = useState(false);
   const [showExportModal, setShowExportModal] = useState(false);
+  const [showConfirmAddModal, setShowConfirmAddModal] = useState(false);
+  const [showConfirmDeleteModal, setShowConfirmDeleteModal] = useState(false);
+  const [itemToDelete, setItemToDelete] = useState<Barang | null>(null);
   const [activeItem, setActiveItem] = useState<Barang | null>(null);
 
   const executeExportSpreadsheet = (data: Barang[], summaryText: string) => {
@@ -190,8 +194,26 @@ export default function BarangView({
   const handleAddSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!isAddFormValid) return;
+    setShowConfirmAddModal(true);
+  };
+
+  const handleConfirmAdd = () => {
     onAddBarang(formData);
+    setShowConfirmAddModal(false);
     setShowAddModal(false);
+  };
+
+  const handleOpenDelete = (item: Barang) => {
+    setItemToDelete(item);
+    setShowConfirmDeleteModal(true);
+  };
+
+  const handleConfirmDelete = () => {
+    if (itemToDelete) {
+      onDeleteBarang(itemToDelete.id);
+      setShowConfirmDeleteModal(false);
+      setItemToDelete(null);
+    }
   };
 
   const handleOpenEdit = (item: Barang) => {
@@ -433,11 +455,7 @@ export default function BarangView({
                               <Edit2 className="w-4 h-4" />
                             </button>
                             <button
-                              onClick={() => {
-                                if (confirm(`Apakah Anda yakin ingin menghapus barang "${item.nama}"?`)) {
-                                  onDeleteBarang(item.id);
-                                }
-                              }}
+                              onClick={() => handleOpenDelete(item)}
                               className="p-1.5 hover:bg-red-50 rounded-lg text-red-600 cursor-pointer"
                               title="Hapus"
                             >
@@ -945,6 +963,52 @@ export default function BarangView({
         onConfirm={(filteredData, format, summaryText) => {
           executeExportSpreadsheet(filteredData, summaryText);
         }}
+      />
+
+      {/* Confirmation Modal for Adding Barang */}
+      <ConfirmationModal
+        isOpen={showConfirmAddModal}
+        onClose={() => setShowConfirmAddModal(false)}
+        onConfirm={handleConfirmAdd}
+        title="Konfirmasi Registrasi Barang Baru"
+        subtitle="Pastikan seluruh spesifikasi item persediaan BMN telah sesuai sebelum didaftarkan."
+        variant="primary"
+        confirmLabel="Ya, Daftarkan Barang"
+        cancelLabel="Kembali & Cek"
+        details={[
+          { label: 'Kode Barang', value: `${formData.kategoriId}.${formData.id}` },
+          { label: 'Nama Barang', value: formData.nama },
+          { label: 'Kategori BMN', value: formData.kategori },
+          { label: 'Supplier / Rekanan', value: formData.supplier || '-' },
+          { label: 'Satuan', value: formData.satuan },
+          { label: 'Lokasi Rak / Gudang', value: formData.lokasiRak },
+          { label: 'Stok Awal', value: `${formData.stokSekarang} ${formData.satuan}` },
+          { label: 'Batas Minimum', value: `${formData.stokMin} ${formData.satuan}` },
+          { label: 'Batas Maksimum', value: `${formData.stokMaks} ${formData.satuan}` }
+        ]}
+      />
+
+      {/* Confirmation Modal for Deleting Barang */}
+      <ConfirmationModal
+        isOpen={showConfirmDeleteModal && !!itemToDelete}
+        onClose={() => {
+          setShowConfirmDeleteModal(false);
+          setItemToDelete(null);
+        }}
+        onConfirm={handleConfirmDelete}
+        title="Konfirmasi Hapus Barang Persediaan"
+        subtitle={itemToDelete ? `Apakah Anda yakin ingin menghapus item "${itemToDelete.nama}" dari katalog persediaan BMN?` : ''}
+        variant="danger"
+        confirmLabel="Ya, Hapus Barang"
+        cancelLabel="Batal"
+        warningNote="Peringatan: Item ini akan dihapus dari katalog persediaan aktif. Seluruh mutasi masa lalu tetap tercatat dalam log pembukuan."
+        details={itemToDelete ? [
+          { label: 'Kode Barang', value: itemToDelete.id.replace('-', '.') },
+          { label: 'Nama Barang', value: itemToDelete.nama },
+          { label: 'Kategori BMN', value: itemToDelete.kategori },
+          { label: 'Sisa Stok Saat Ini', value: `${itemToDelete.stokSekarang} ${itemToDelete.satuan}` },
+          { label: 'Lokasi Rak', value: itemToDelete.lokasiRak }
+        ] : []}
       />
     </div>
   );

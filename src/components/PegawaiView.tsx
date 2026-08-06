@@ -6,6 +6,7 @@
 import React, { useState } from 'react';
 import { Plus, Edit2, Trash2, X, Search, Contact, FileText, Phone, Award } from 'lucide-react';
 import { Pegawai } from '../types';
+import ConfirmationModal from './ConfirmationModal';
 
 interface PegawaiViewProps {
   pegawaiList: Pegawai[];
@@ -25,6 +26,9 @@ export default function PegawaiView({
   const [searchTerm, setSearchTerm] = useState('');
   const [showAddModal, setShowAddModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
+  const [showConfirmAddModal, setShowConfirmAddModal] = useState(false);
+  const [showConfirmDeleteModal, setShowConfirmDeleteModal] = useState(false);
+  const [pegawaiToDelete, setPegawaiToDelete] = useState<Pegawai | null>(null);
   const [formData, setFormData] = useState({ nama: '', jabatan: '', nip: '', telepon: '' });
   const [editFormData, setEditFormData] = useState<Partial<Pegawai>>({});
 
@@ -37,9 +41,27 @@ export default function PegawaiView({
 
   const handleAddSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!formData.nama) return;
+    if (!formData.nama.trim()) return;
+    setShowConfirmAddModal(true);
+  };
+
+  const handleConfirmAdd = () => {
     onAddPegawai(formData);
+    setShowConfirmAddModal(false);
     setShowAddModal(false);
+  };
+
+  const handleDeleteClick = (p: Pegawai) => {
+    setPegawaiToDelete(p);
+    setShowConfirmDeleteModal(true);
+  };
+
+  const handleConfirmDelete = () => {
+    if (pegawaiToDelete) {
+      onDeletePegawai(pegawaiToDelete.id);
+      setShowConfirmDeleteModal(false);
+      setPegawaiToDelete(null);
+    }
   };
 
   const handleOpenEdit = (p: Pegawai) => {
@@ -136,11 +158,7 @@ export default function PegawaiView({
                     <Edit2 className="w-3.5 h-3.5" />
                   </button>
                   <button
-                    onClick={() => {
-                      if (confirm(`Apakah Anda yakin ingin menghapus pegawai "${p.nama}"?`)) {
-                        onDeletePegawai(p.id);
-                      }
-                    }}
+                    onClick={() => handleDeleteClick(p)}
                     className="p-1.5 hover:bg-red-50 text-red-600 rounded-lg cursor-pointer"
                     title="Hapus Pegawai"
                   >
@@ -317,6 +335,45 @@ export default function PegawaiView({
           </div>
         </div>
       )}
+      {/* Confirmation Modal for Adding Pegawai */}
+      <ConfirmationModal
+        isOpen={showConfirmAddModal}
+        onClose={() => setShowConfirmAddModal(false)}
+        onConfirm={handleConfirmAdd}
+        title="Konfirmasi Registrasi Pegawai / Petugas"
+        subtitle="Pegawai baru akan didaftarkan ke dalam direktori petugas BMN BPMP Sumsel."
+        variant="primary"
+        confirmLabel="Ya, Daftarkan Pegawai"
+        cancelLabel="Kembali & Cek"
+        details={[
+          { label: 'Nama Lengkap', value: formData.nama },
+          { label: 'Jabatan / Posisi', value: formData.jabatan || 'Petugas BMN' },
+          { label: 'NIP', value: formData.nip || '-' },
+          { label: 'Nomor Telepon', value: formData.telepon || '-' }
+        ]}
+      />
+
+      {/* Confirmation Modal for Deleting Pegawai */}
+      <ConfirmationModal
+        isOpen={showConfirmDeleteModal && !!pegawaiToDelete}
+        onClose={() => {
+          setShowConfirmDeleteModal(false);
+          setPegawaiToDelete(null);
+        }}
+        onConfirm={handleConfirmDelete}
+        title="Konfirmasi Hapus Data Pegawai"
+        subtitle={pegawaiToDelete ? `Apakah Anda yakin ingin menghapus "${pegawaiToDelete.nama}" dari direktori?` : ''}
+        variant="danger"
+        confirmLabel="Ya, Hapus Pegawai"
+        cancelLabel="Batal"
+        warningNote="Peringatan: Data pegawai ini akan dihapus dari direktori master petugas internal."
+        details={pegawaiToDelete ? [
+          { label: 'ID Pegawai', value: pegawaiToDelete.id },
+          { label: 'Nama Lengkap', value: pegawaiToDelete.nama },
+          { label: 'Jabatan', value: pegawaiToDelete.jabatan },
+          { label: 'NIP', value: pegawaiToDelete.nip || '-' }
+        ] : []}
+      />
     </div>
   );
 }

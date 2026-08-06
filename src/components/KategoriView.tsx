@@ -6,6 +6,7 @@
 import React, { useState } from 'react';
 import { Plus, Edit2, Trash2, X, FolderTree, QrCode, Printer, PackageSearch, Download } from 'lucide-react';
 import { Kategori, Barang } from '../types';
+import ConfirmationModal from './ConfirmationModal';
 
 interface KategoriViewProps {
   kategoriList: Kategori[];
@@ -27,6 +28,11 @@ export default function KategoriView({
   const [showAddModal, setShowAddModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [showQrModal, setShowQrModal] = useState(false);
+  const [showConfirmAddModal, setShowConfirmAddModal] = useState(false);
+  const [showConfirmDeleteModal, setShowConfirmDeleteModal] = useState(false);
+  const [showBlockedDeleteModal, setShowBlockedDeleteModal] = useState(false);
+  const [catToDelete, setCatToDelete] = useState<Kategori | null>(null);
+  const [blockedCatInfo, setBlockedCatInfo] = useState<{ cat: Kategori; count: number } | null>(null);
   const [selectedCatQr, setSelectedCatQr] = useState<Kategori | null>(null);
   const [selectedCatItems, setSelectedCatItems] = useState<Kategori | null>(null);
 
@@ -50,13 +56,37 @@ export default function KategoriView({
 
   const handleAddSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!formData.nama) return;
+    if (!formData.nama.trim()) return;
+    setShowConfirmAddModal(true);
+  };
+
+  const handleConfirmAdd = () => {
     onAddKategori({
       id: formData.id ? formData.id.trim() : undefined,
-      nama: formData.nama,
-      deskripsi: formData.deskripsi
+      nama: formData.nama.trim(),
+      deskripsi: formData.deskripsi.trim()
     });
+    setShowConfirmAddModal(false);
     setShowAddModal(false);
+  };
+
+  const handleDeleteClick = (cat: Kategori) => {
+    const count = getBarangCount(cat.nama, cat.id);
+    if (count > 0) {
+      setBlockedCatInfo({ cat, count });
+      setShowBlockedDeleteModal(true);
+      return;
+    }
+    setCatToDelete(cat);
+    setShowConfirmDeleteModal(true);
+  };
+
+  const handleConfirmDelete = () => {
+    if (catToDelete) {
+      onDeleteKategori(catToDelete.id);
+      setShowConfirmDeleteModal(false);
+      setCatToDelete(null);
+    }
   };
 
   const handleOpenEdit = (k: Kategori) => {
@@ -174,15 +204,7 @@ export default function KategoriView({
                       <Edit2 className="w-3.5 h-3.5" />
                     </button>
                     <button
-                      onClick={() => {
-                        if (count > 0) {
-                          alert(`Tidak dapat menghapus. Ada ${count} item barang menggunakan kategori ini.`);
-                          return;
-                        }
-                        if (confirm(`Apakah Anda yakin ingin menghapus kategori "${cat.nama}"?`)) {
-                          onDeleteKategori(cat.id);
-                        }
-                      }}
+                      onClick={() => handleDeleteClick(cat)}
                       className="p-1.5 hover:bg-red-50 text-red-600 rounded-lg cursor-pointer transition-colors"
                       title="Hapus Kategori"
                     >
@@ -388,6 +410,68 @@ export default function KategoriView({
           </div>
         </div>
       )}
+      {/* Confirmation Modal for Adding Category */}
+      <ConfirmationModal
+        isOpen={showConfirmAddModal}
+        onClose={() => setShowConfirmAddModal(false)}
+        onConfirm={handleConfirmAdd}
+        title="Konfirmasi Tambah Kategori BMN"
+        subtitle="Pastikan klasifikasi kategori baru sudah sesuai sebelum disimpan."
+        variant="primary"
+        confirmLabel="Ya, Tambahkan Kategori"
+        cancelLabel="Kembali & Cek"
+        details={[
+          { label: 'Kode Kategori', value: formData.id ? formData.id.trim() : '(Otomatis oleh sistem)' },
+          { label: 'Nama Kategori', value: formData.nama },
+          { label: 'Deskripsi', value: formData.deskripsi || 'Tidak ada deskripsi' }
+        ]}
+      />
+
+      {/* Confirmation Modal for Deleting Category */}
+      <ConfirmationModal
+        isOpen={showConfirmDeleteModal && !!catToDelete}
+        onClose={() => {
+          setShowConfirmDeleteModal(false);
+          setCatToDelete(null);
+        }}
+        onConfirm={handleConfirmDelete}
+        title="Konfirmasi Hapus Kategori"
+        subtitle={catToDelete ? `Apakah Anda yakin ingin menghapus kategori "${catToDelete.nama}"?` : ''}
+        variant="danger"
+        confirmLabel="Ya, Hapus Kategori"
+        cancelLabel="Batal"
+        warningNote="Peringatan: Kategori ini akan dihapus permanen dari sistem klasifikasi BMN."
+        details={catToDelete ? [
+          { label: 'Kode Kategori', value: catToDelete.id },
+          { label: 'Nama Kategori', value: catToDelete.nama },
+          { label: 'Deskripsi', value: catToDelete.deskripsi || '-' }
+        ] : []}
+      />
+
+      {/* Warning Modal when Category Deletion is Blocked */}
+      <ConfirmationModal
+        isOpen={showBlockedDeleteModal && !!blockedCatInfo}
+        onClose={() => {
+          setShowBlockedDeleteModal(false);
+          setBlockedCatInfo(null);
+        }}
+        onConfirm={() => {
+          setShowBlockedDeleteModal(false);
+          setBlockedCatInfo(null);
+        }}
+        title="Kategori Tidak Dapat Dihapus"
+        subtitle={blockedCatInfo ? `Kategori "${blockedCatInfo.cat.nama}" sedang aktif digunakan.` : ''}
+        message={blockedCatInfo ? `Terdapat ${blockedCatInfo.count} jenis item barang persediaan yang terhubung dengan kategori ini. Ubah kategori barang terkait atau hapus item tersebut terlebih dahulu.` : ''}
+        variant="warning"
+        confirmLabel="Mengerti"
+        cancelLabel="Tutup"
+        warningNote="Integritas Database: Kategori yang memiliki relasi dengan item barang persediaan dilindungi dari penghapusan tidak disengaja."
+        details={blockedCatInfo ? [
+          { label: 'Kode Kategori', value: blockedCatInfo.cat.id },
+          { label: 'Nama Kategori', value: blockedCatInfo.cat.nama },
+          { label: 'Jumlah Item Terkait', value: `${blockedCatInfo.count} Item Barang` }
+        ] : []}
+      />
     </div>
   );
 }

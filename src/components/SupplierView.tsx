@@ -6,6 +6,7 @@
 import React, { useState } from 'react';
 import { Plus, Edit2, Trash2, X, Phone, User as UserIcon, MapPin, Building2 } from 'lucide-react';
 import { Supplier } from '../types';
+import ConfirmationModal from './ConfirmationModal';
 
 interface SupplierViewProps {
   supplierList: Supplier[];
@@ -24,6 +25,9 @@ export default function SupplierView({
 }: SupplierViewProps) {
   const [showAddModal, setShowAddModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
+  const [showConfirmAddModal, setShowConfirmAddModal] = useState(false);
+  const [showConfirmDeleteModal, setShowConfirmDeleteModal] = useState(false);
+  const [supplierToDelete, setSupplierToDelete] = useState<Supplier | null>(null);
   const [formData, setFormData] = useState({ nama: '', kontak: '', telepon: '', alamat: '' });
   const [editFormData, setEditFormData] = useState<Partial<Supplier>>({});
 
@@ -36,9 +40,27 @@ export default function SupplierView({
 
   const handleAddSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!formData.nama) return;
+    if (!formData.nama.trim()) return;
+    setShowConfirmAddModal(true);
+  };
+
+  const handleConfirmAdd = () => {
     onAddSupplier(formData);
+    setShowConfirmAddModal(false);
     setShowAddModal(false);
+  };
+
+  const handleDeleteClick = (s: Supplier) => {
+    setSupplierToDelete(s);
+    setShowConfirmDeleteModal(true);
+  };
+
+  const handleConfirmDelete = () => {
+    if (supplierToDelete) {
+      onDeleteSupplier(supplierToDelete.id);
+      setShowConfirmDeleteModal(false);
+      setSupplierToDelete(null);
+    }
   };
 
   const handleOpenEdit = (s: Supplier) => {
@@ -112,12 +134,9 @@ export default function SupplierView({
                   <Edit2 className="w-3.5 h-3.5" />
                 </button>
                 <button
-                  onClick={() => {
-                    if (confirm(`Apakah Anda yakin ingin menghapus supplier "${s.nama}"?`)) {
-                      onDeleteSupplier(s.id);
-                    }
-                  }}
+                  onClick={() => handleDeleteClick(s)}
                   className="p-1.5 hover:bg-red-50 text-red-600 rounded-lg cursor-pointer"
+                  title="Hapus Supplier"
                 >
                   <Trash2 className="w-3.5 h-3.5" />
                 </button>
@@ -270,6 +289,46 @@ export default function SupplierView({
           </div>
         </div>
       )}
+      {/* Confirmation Modal for Adding Supplier */}
+      <ConfirmationModal
+        isOpen={showConfirmAddModal}
+        onClose={() => setShowConfirmAddModal(false)}
+        onConfirm={handleConfirmAdd}
+        title="Konfirmasi Registrasi Rekanan / Supplier"
+        subtitle="Pastikan data identitas penyedia BMN sudah valid sebelum disimpan."
+        variant="primary"
+        confirmLabel="Ya, Daftarkan Rekanan"
+        cancelLabel="Kembali & Cek"
+        details={[
+          { label: 'Nama Perusahaan / Toko', value: formData.nama },
+          { label: 'Kontak Person', value: formData.kontak },
+          { label: 'Nomor Telepon', value: formData.telepon },
+          { label: 'Alamat Kantor / Toko', value: formData.alamat || '-' }
+        ]}
+      />
+
+      {/* Confirmation Modal for Deleting Supplier */}
+      <ConfirmationModal
+        isOpen={showConfirmDeleteModal && !!supplierToDelete}
+        onClose={() => {
+          setShowConfirmDeleteModal(false);
+          setSupplierToDelete(null);
+        }}
+        onConfirm={handleConfirmDelete}
+        title="Konfirmasi Hapus Rekanan / Supplier"
+        subtitle={supplierToDelete ? `Apakah Anda yakin ingin menghapus "${supplierToDelete.nama}" dari daftar rekanan?` : ''}
+        variant="danger"
+        confirmLabel="Ya, Hapus Rekanan"
+        cancelLabel="Batal"
+        warningNote="Peringatan: Data rekanan penyedia ini akan dihapus dari daftar master supplier."
+        details={supplierToDelete ? [
+          { label: 'ID Rekanan', value: supplierToDelete.id },
+          { label: 'Nama Perusahaan', value: supplierToDelete.nama },
+          { label: 'Kontak Person', value: supplierToDelete.kontak },
+          { label: 'Nomor Telepon', value: supplierToDelete.telepon },
+          { label: 'Alamat', value: supplierToDelete.alamat || '-' }
+        ] : []}
+      />
     </div>
   );
 }

@@ -6,6 +6,7 @@
 import React, { useState } from 'react';
 import { Plus, Edit2, Trash2, X, Building, ShieldCheck } from 'lucide-react';
 import { Unit, Pegawai } from '../types';
+import ConfirmationModal from './ConfirmationModal';
 
 interface UnitViewProps {
   unitList: Unit[];
@@ -26,6 +27,9 @@ export default function UnitView({
 }: UnitViewProps) {
   const [showAddModal, setShowAddModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
+  const [showConfirmAddModal, setShowConfirmAddModal] = useState(false);
+  const [showConfirmDeleteModal, setShowConfirmDeleteModal] = useState(false);
+  const [unitToDelete, setUnitToDelete] = useState<Unit | null>(null);
   const [formData, setFormData] = useState({ nama: '', penanggungJawab: '', keterangan: '' });
   const [editFormData, setEditFormData] = useState<Partial<Unit>>({});
 
@@ -42,9 +46,27 @@ export default function UnitView({
 
   const handleAddSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!formData.nama) return;
+    if (!formData.nama.trim()) return;
+    setShowConfirmAddModal(true);
+  };
+
+  const handleConfirmAdd = () => {
     onAddUnit(formData);
+    setShowConfirmAddModal(false);
     setShowAddModal(false);
+  };
+
+  const handleDeleteClick = (u: Unit) => {
+    setUnitToDelete(u);
+    setShowConfirmDeleteModal(true);
+  };
+
+  const handleConfirmDelete = () => {
+    if (unitToDelete) {
+      onDeleteUnit(unitToDelete.id);
+      setShowConfirmDeleteModal(false);
+      setUnitToDelete(null);
+    }
   };
 
   const handleOpenEdit = (u: Unit) => {
@@ -108,12 +130,9 @@ export default function UnitView({
                   <Edit2 className="w-3.5 h-3.5" />
                 </button>
                 <button
-                  onClick={() => {
-                    if (confirm(`Apakah Anda yakin ingin menghapus unit kerja "${u.nama}"?`)) {
-                      onDeleteUnit(u.id);
-                    }
-                  }}
+                  onClick={() => handleDeleteClick(u)}
                   className="p-1.5 hover:bg-red-50 text-red-600 rounded-lg cursor-pointer"
+                  title="Hapus Unit Kerja"
                 >
                   <Trash2 className="w-3.5 h-3.5" />
                 </button>
@@ -224,6 +243,42 @@ export default function UnitView({
           </div>
         </div>
       )}
+      {/* Confirmation Modal for Adding Unit Kerja */}
+      <ConfirmationModal
+        isOpen={showConfirmAddModal}
+        onClose={() => setShowConfirmAddModal(false)}
+        onConfirm={handleConfirmAdd}
+        title="Konfirmasi Tambah Unit Kerja"
+        subtitle="Unit kerja baru akan didaftarkan sebagai penerima distribusi persediaan BMN."
+        variant="primary"
+        confirmLabel="Ya, Tambahkan Unit"
+        cancelLabel="Kembali & Cek"
+        details={[
+          { label: 'Nama Unit Kerja', value: formData.nama },
+          { label: 'Keterangan / Fungsi', value: formData.keterangan || '-' }
+        ]}
+      />
+
+      {/* Confirmation Modal for Deleting Unit Kerja */}
+      <ConfirmationModal
+        isOpen={showConfirmDeleteModal && !!unitToDelete}
+        onClose={() => {
+          setShowConfirmDeleteModal(false);
+          setUnitToDelete(null);
+        }}
+        onConfirm={handleConfirmDelete}
+        title="Konfirmasi Hapus Unit Kerja"
+        subtitle={unitToDelete ? `Apakah Anda yakin ingin menghapus unit kerja "${unitToDelete.nama}"?` : ''}
+        variant="danger"
+        confirmLabel="Ya, Hapus Unit Kerja"
+        cancelLabel="Batal"
+        warningNote="Peringatan: Unit kerja ini akan dihapus dari daftar distribusi persediaan."
+        details={unitToDelete ? [
+          { label: 'ID Unit', value: unitToDelete.id },
+          { label: 'Nama Unit Kerja', value: unitToDelete.nama },
+          { label: 'Keterangan', value: unitToDelete.keterangan || '-' }
+        ] : []}
+      />
     </div>
   );
 }
