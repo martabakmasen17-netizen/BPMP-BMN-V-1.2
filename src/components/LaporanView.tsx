@@ -33,7 +33,7 @@ export default function LaporanView({ barang, riwayat, instituteName, settings }
   const jabatanPj = settings?.jabatanPenanggungJawab || 'Administrator / Petugas BMN';
   const nipPj = settings?.nipPenanggungJawab || '-';
 
-  const executeBarangPrintOfficialPDF = (data: Barang[], summaryText: string) => {
+  const executeBarangPrintOfficialPDF = (data: Barang[], summaryText: string, dateRange?: {start: string, end: string}) => {
     const printWindow = window.open('', '_blank');
     if (!printWindow) return;
 
@@ -42,6 +42,27 @@ export default function LaporanView({ barang, riwayat, instituteName, settings }
       month: 'long',
       year: 'numeric'
     });
+
+    let periodStartDisplay = '-';
+    let periodEndDisplay = todayDate;
+    if (dateRange) {
+        const endDate = new Date(dateRange.end);
+        if (!isNaN(endDate.getTime())) {
+            periodEndDisplay = endDate.toLocaleDateString('id-ID', {
+                day: 'numeric',
+                month: 'long',
+                year: 'numeric'
+            });
+        }
+        const startDate = new Date(dateRange.start);
+        if (!isNaN(startDate.getTime())) {
+            periodStartDisplay = startDate.toLocaleDateString('id-ID', {
+                day: 'numeric',
+                month: 'long',
+                year: 'numeric'
+            });
+        }
+    }
 
     const totalFilteredStok = data.reduce((sum, item) => sum + item.stokSekarang, 0);
 
@@ -91,7 +112,7 @@ export default function LaporanView({ barang, riwayat, instituteName, settings }
 
           <div class="meta">
             LAPORAN REKAPITULASI PERSEDIAAN BARANG BMN
-            <span>Periode Data: ${summaryText}</span>
+            <span>Periode: ${periodStartDisplay !== '-' ? periodStartDisplay + ' s.d ' + periodEndDisplay : summaryText}</span>
             <span>Per Tanggal Cetak: ${todayDate}</span>
           </div>
 
@@ -274,9 +295,9 @@ export default function LaporanView({ barang, riwayat, instituteName, settings }
         description="Filter periode data atau bulan yang akan dicetak/diunduh"
         dataList={barang}
         getDateFn={item => item.createdAt || ''}
-        onConfirm={(filteredData, format, summaryText) => {
+        onConfirm={(filteredData, format, summaryText, dateRange) => {
           if (format === 'pdf') {
-            executeBarangPrintOfficialPDF(filteredData, summaryText);
+            executeBarangPrintOfficialPDF(filteredData, summaryText, dateRange);
           } else {
             executeBarangExportSpreadsheet(filteredData, summaryText);
           }

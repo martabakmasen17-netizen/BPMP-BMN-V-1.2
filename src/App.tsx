@@ -1049,8 +1049,11 @@ const handler = setTimeout(async () => {
 
   // Stats today count
   const todayStr = new Date().toISOString().slice(0, 10);
+  const monthStr = new Date().toISOString().slice(0, 7);
   const barangMasukToday = barangMasukList.filter(t => t.tanggal.startsWith(todayStr)).length;
   const barangKeluarToday = barangKeluarList.filter(t => t.tanggal.startsWith(todayStr)).length;
+  const barangMasukBulanIni = barangMasukList.filter(t => t.tanggal.startsWith(monthStr)).length;
+  const barangKeluarBulanIni = barangKeluarList.filter(t => t.tanggal.startsWith(monthStr)).length;
 
   if (isLoading) {
     return (
@@ -1250,6 +1253,8 @@ const handler = setTimeout(async () => {
                   suppliersCount={supplierList.length}
                   barangMasukCountToday={barangMasukToday}
                   barangKeluarCountToday={barangKeluarToday}
+                  barangMasukCountBulanIni={barangMasukBulanIni}
+                  barangKeluarCountBulanIni={barangKeluarBulanIni}
                   recentLogs={auditLogsList.slice(0, 5)}
                   setActiveTab={setActiveTab}
                   setQuickAddBarangId={handleQuickAddStock}
