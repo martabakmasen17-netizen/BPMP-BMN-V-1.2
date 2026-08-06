@@ -191,7 +191,7 @@ export default function DashboardView({
         <div>
           <h2 className="text-lg font-bold tracking-tight">Halo, Petugas BMN BPMP Sumsel!</h2>
           <p className="text-white/80 text-xs mt-1 max-w-xl leading-relaxed">
-            Selamat datang di portal Sistem Informasi Monitoring Persediaan Barang. Lakukan administrasi pergudangan secara digital, terintegrasi, dan real-time.
+            Selamat datang di Sistem Informasi Logistik & Alat Persediaan Barang Milik Negara (SILAP BMN). Lakukan administrasi pergudangan secara digital, terintegrasi, dan real-time.
           </p>
         </div>
         <div className="flex flex-wrap gap-2">

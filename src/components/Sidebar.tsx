@@ -99,8 +99,8 @@ export default function Sidebar({
             <div 
               className={`flex flex-col min-w-0 leading-tight transition-all duration-300 overflow-hidden origin-left ${collapsed ? 'opacity-0 w-0 scale-95' : 'opacity-100 w-32 scale-100'}`}
             >
-              <span className="font-bold text-white text-sm tracking-tight">BPMP SUMSEL</span>
-              <span className="text-[10px] text-white/50 uppercase tracking-widest mt-0.5">Inventory v1.0</span>
+              <span className="font-bold text-white text-sm tracking-tight">SILAP BMN</span>
+              <span className="text-[10px] text-white/50 uppercase tracking-widest mt-0.5">BPMP SUMSEL</span>
             </div>
           </div>
           

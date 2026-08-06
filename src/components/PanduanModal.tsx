@@ -298,7 +298,7 @@ export default function PanduanModal({ isOpen, onClose }: PanduanModalProps) {
                     </span>
                   </div>
                   <p className="text-xs text-amber-100 font-medium hidden sm:block">
-                    Petunjuk operasional lengkap penggunaan fitur Sistem Persediaan BMN BPMP Provinsi Sumatera Selatan
+                    Petunjuk operasional lengkap penggunaan fitur SILAP BMN BPMP Provinsi Sumatera Selatan
                   </p>
                 </div>
               </div>
@@ -527,7 +527,7 @@ export default function PanduanModal({ isOpen, onClose }: PanduanModalProps) {
             <div className="px-6 py-3 bg-slate-100 border-t border-slate-200 text-slate-500 text-[11px] flex items-center justify-between gap-2 flex-shrink-0 font-medium">
               <div className="flex items-center gap-2">
                 <Database className="w-3.5 h-3.5 text-slate-400" />
-                <span>Sistem Persediaan BMN v2.5 — BPMP Provinsi Sumatera Selatan</span>
+                <span>SILAP BMN v1.0 — BPMP Provinsi Sumatera Selatan</span>
               </div>
               <div className="flex items-center gap-3">
                 <span className="hidden sm:inline">Tekan ESC atau tombol silang untuk menutup</span>
