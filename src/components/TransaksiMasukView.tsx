@@ -11,7 +11,7 @@ import {
   Calendar, UserCheck, Truck, LayoutGrid, FileCheck, Copy, Check,
   Trash2, FileSpreadsheet
 } from 'lucide-react';
-import { Barang, Kategori, Supplier, BarangMasuk, Pegawai } from '../types';
+import { Barang, Kategori, Supplier, BarangMasuk, Pegawai, Unit } from '../types';
 import QRScannerModal from './QRScannerModal';
 import ExportConfirmModal from './ExportConfirmModal';
 import BarangSearchPicker from './BarangSearchPicker';
@@ -21,12 +21,13 @@ interface TransaksiMasukViewProps {
   kategoriList: Kategori[];
   supplierList: Supplier[];
   transaksiList: BarangMasuk[];
-  onProcessTransaksi: (t: Omit<BarangMasuk, 'id' | 'tanggal'>) => void;
+  onProcessTransaksi: (t: Omit<BarangMasuk, 'id' | 'tanggal'>, langsungKeluar?: { unitId: string, keperluan: string, petugas: string, catatan: string }) => void;
+  unitList: Unit[];
+  pegawaiList: Pegawai[];
   onDeleteTransaksi?: (ids: string[]) => void;
   currentUserRole: string;
   quickAddBarangId?: string;
   clearQuickAdd?: () => void;
-  pegawaiList: Pegawai[];
   folderId?: string;
 }
 
@@ -34,6 +35,7 @@ export default function TransaksiMasukView({
   barangList,
   kategoriList = [],
   supplierList,
+  unitList,
   transaksiList,
   onProcessTransaksi,
   onDeleteTransaksi,
@@ -125,6 +127,12 @@ export default function TransaksiMasukView({
   const [uploadedFileData, setUploadedFileData] = useState<string>('');
   const [isUploadingDrive, setIsUploadingDrive] = useState<boolean>(false);
   const [isDragging, setIsDragging] = useState(false);
+  
+  // Langsung Keluar state
+  const [isLangsungKeluar, setIsLangsungKeluar] = useState(false);
+  const [lkUnitId, setLkUnitId] = useState(unitList?.[0]?.nama || 'Subbag Tata Usaha');
+  const [lkKeperluan, setLkKeperluan] = useState('Kegiatan / Event');
+  const [lkCatatan, setLkCatatan] = useState('');
 
   const processSelectedFile = (file: File) => {
     setUploadedFile(file.name);
@@ -217,7 +225,7 @@ export default function TransaksiMasukView({
   };
 
   const handleConfirmSubmit = () => {
-    onProcessTransaksi({
+    const masukPayload = {
       barangId: selectedBarangId,
       namaBarang: barangList.find(b => b.id === selectedBarangId)?.nama || '',
       jumlah,
@@ -226,12 +234,25 @@ export default function TransaksiMasukView({
       fileDokumen: uploadedFile || 'Dokumen_Penerimaan_Fisik_signed.pdf',
       fileData: uploadedFileData,
       catatan
-    });
+    };
+    
+    if (isLangsungKeluar) {
+      onProcessTransaksi(masukPayload, {
+        unitId: lkUnitId,
+        keperluan: lkKeperluan,
+        petugas,
+        catatan: lkCatatan
+      });
+    } else {
+      onProcessTransaksi(masukPayload);
+    }
 
     setJumlah(10);
     setCatatan('');
     setUploadedFile('');
     setUploadedFileData('');
+    setIsLangsungKeluar(false);
+    setLkCatatan('');
     setShowConfirmModal(false);
     if (clearQuickAdd) clearQuickAdd();
   };
@@ -776,12 +797,69 @@ export default function TransaksiMasukView({
                     />
                   </div>
 
+                  {/* LANGSUNG KELUAR CHECKBOX */}
+                    <div className="pt-2 border-t border-gray-100">
+                      <label className="flex items-center gap-2 cursor-pointer bg-slate-50 border border-slate-200 p-2.5 rounded-xl hover:bg-slate-100 transition-colors">
+                        <input
+                          type="checkbox"
+                          checked={isLangsungKeluar}
+                          onChange={e => setIsLangsungKeluar(e.target.checked)}
+                          className="w-4 h-4 rounded text-blue-600 focus:ring-blue-600 cursor-pointer"
+                        />
+                        <span className="font-bold text-slate-800 text-xs">Langsung Distribusikan (Masuk & Keluar sekaligus)</span>
+                      </label>
+                      
+                      {isLangsungKeluar && (
+                        <div className="mt-3 p-3 bg-blue-50/50 border border-blue-100 rounded-xl space-y-3">
+                          <p className="text-[10px] text-blue-700 leading-relaxed font-medium">
+                            <span className="font-bold">Info:</span> Fitur ini digunakan untuk barang yang hanya transit (misal: pengadaan acara/event). Sistem akan otomatis mencatat penerimaan barang lalu langsung mendistribusikannya sejumlah <strong>{jumlah} {selectedItem?.satuan}</strong>.
+                          </p>
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                            <div className="space-y-1">
+                              <label className="block text-slate-700 font-bold">Unit Penerima *</label>
+                              <select
+                                required={isLangsungKeluar}
+                                value={lkUnitId}
+                                onChange={e => setLkUnitId(e.target.value)}
+                                className="w-full px-3 py-2 bg-white border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-600 focus:outline-none text-xs"
+                              >
+                                {unitList?.map(u => (
+                                  <option key={u.id} value={u.nama}>{u.nama}</option>
+                                ))}
+                              </select>
+                            </div>
+                            <div className="space-y-1">
+                              <label className="block text-slate-700 font-bold">Keperluan / Acara *</label>
+                              <input
+                                type="text"
+                                required={isLangsungKeluar}
+                                value={lkKeperluan}
+                                onChange={e => setLkKeperluan(e.target.value)}
+                                placeholder="Contoh: Acara Pelatihan..."
+                                className="w-full px-3 py-2 bg-white border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-600 focus:outline-none text-xs"
+                              />
+                            </div>
+                          </div>
+                          <div className="space-y-1">
+                            <label className="block text-slate-700 font-bold">Catatan Distribusi (Opsional)</label>
+                            <input
+                              type="text"
+                              value={lkCatatan}
+                              onChange={e => setLkCatatan(e.target.value)}
+                              placeholder="Catatan tambahan saat keluar..."
+                              className="w-full px-3 py-2 bg-white border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-600 focus:outline-none text-xs"
+                            />
+                          </div>
+                        </div>
+                      )}
+                    </div>
+
                   <button
                     type="submit"
-                    className="w-full py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold shadow-md transition-all cursor-pointer text-center flex items-center justify-center gap-2"
+                    className={`w-full py-2.5 text-white rounded-xl text-xs font-bold shadow-md transition-all cursor-pointer text-center flex items-center justify-center gap-2 ${isLangsungKeluar ? 'bg-blue-600 hover:bg-blue-700' : 'bg-emerald-600 hover:bg-emerald-700'}`}
                   >
                     <ArrowDownLeft className="w-4 h-4" />
-                    Simpan Penerimaan Barang Masuk
+                    {isLangsungKeluar ? 'Simpan Penerimaan & Langsung Distribusikan' : 'Simpan Penerimaan Barang Masuk'}
                   </button>
                 </form>
               )}

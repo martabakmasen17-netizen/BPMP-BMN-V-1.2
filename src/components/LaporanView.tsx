@@ -4,18 +4,29 @@
  */
 
 import React, { useState } from 'react';
-import { FileSpreadsheet, Printer, AlertTriangle, PackageCheck, Download, Package } from 'lucide-react';
-import { Barang, Riwayat, Settings } from '../types';
+import { FileSpreadsheet, Printer, AlertTriangle, PackageCheck, Download, Package, CalendarDays, BookOpen } from 'lucide-react';
+import { Barang, Riwayat, Settings, BarangMasuk, BarangKeluar } from '../types';
 import ExportConfirmModal, { ExportFormat } from './ExportConfirmModal';
+import LaporanBulanan from './LaporanBulanan';
 
 interface LaporanViewProps {
   barang: Barang[];
   riwayat: Riwayat[];
+  barangMasukList?: BarangMasuk[];
+  barangKeluarList?: BarangKeluar[];
   instituteName: string;
   settings?: Settings;
 }
 
-export default function LaporanView({ barang, riwayat, instituteName, settings }: LaporanViewProps) {
+export default function LaporanView({ 
+  barang, 
+  riwayat, 
+  barangMasukList = [], 
+  barangKeluarList = [], 
+  instituteName, 
+  settings 
+}: LaporanViewProps) {
+  const [activeReportTab, setActiveReportTab] = useState<'bulanan' | 'katalog'>('bulanan');
   const [showBarangExportModal, setShowBarangExportModal] = useState(false);
   const [showRiwayatExportModal, setShowRiwayatExportModal] = useState(false);
 
@@ -201,91 +212,130 @@ export default function LaporanView({ barang, riwayat, instituteName, settings }
 
   return (
     <div className="space-y-6">
-      {/* Quick stats on inventory health */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <div className="bg-white p-4 border border-gray-200 rounded-2xl shadow-sm flex items-center gap-4">
-          <div className="bg-blue-50 text-blue-600 p-3 rounded-xl">
-            <Package className="w-6 h-6" />
-          </div>
-          <div>
-            <span className="text-xs text-gray-500 block font-medium">Total Katalog BMN</span>
-            <span className="text-lg font-bold text-gray-900 block mt-0.5">{totalBarang} Jenis Item</span>
-          </div>
-        </div>
+      {/* Top Report Tab Navigation */}
+      <div className="flex items-center gap-2 p-1.5 bg-slate-200/70 backdrop-blur-sm rounded-2xl w-fit border border-slate-300/60 shadow-inner">
+        <button
+          onClick={() => setActiveReportTab('bulanan')}
+          className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+            activeReportTab === 'bulanan'
+              ? 'bg-white text-blue-700 shadow-sm border border-slate-200/80 font-black'
+              : 'text-slate-600 hover:text-slate-900 hover:bg-white/50'
+          }`}
+        >
+          <CalendarDays className="w-4 h-4 text-blue-600" />
+          Laporan Bulanan (Rekap Harian Masuk & Keluar)
+        </button>
 
-        <div className="bg-white p-4 border border-gray-200 rounded-2xl shadow-sm flex items-center gap-4">
-          <div className="bg-emerald-50 text-emerald-600 p-3 rounded-xl">
-            <PackageCheck className="w-6 h-6" />
-          </div>
-          <div>
-            <span className="text-xs text-gray-500 block font-medium">Kesehatan Katalog</span>
-            <span className="text-lg font-bold text-gray-900 block mt-0.5">
-              {totalBarang > 0 ? Math.round(((totalBarang - stokMenipis - stokHabis) / totalBarang) * 100) : 100}% Aman
-            </span>
-          </div>
-        </div>
-
-        <div className="bg-white p-4 border border-gray-200 rounded-2xl shadow-sm flex items-center gap-4">
-          <div className="bg-amber-50 text-amber-600 p-3 rounded-xl">
-            <AlertTriangle className="w-6 h-6" />
-          </div>
-          <div>
-            <span className="text-xs text-gray-500 block font-medium">Item Perlu Restok</span>
-            <span className="text-lg font-bold text-gray-900 block mt-0.5">{stokMenipis + stokHabis} Item</span>
-          </div>
-        </div>
+        <button
+          onClick={() => setActiveReportTab('katalog')}
+          className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+            activeReportTab === 'katalog'
+              ? 'bg-white text-blue-700 shadow-sm border border-slate-200/80 font-black'
+              : 'text-slate-600 hover:text-slate-900 hover:bg-white/50'
+          }`}
+        >
+          <BookOpen className="w-4 h-4 text-slate-600" />
+          Katalog Persediaan & Buku Mutasi BMN
+        </button>
       </div>
 
-      {/* Reports portal section with bento items */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        {/* Laporan Rekapitulasi Persediaan */}
-        <div className="bg-white p-5 border border-gray-200 rounded-2xl shadow-sm space-y-4 flex flex-col justify-between">
-          <div className="space-y-1.5">
-            <h4 className="font-bold text-gray-900 text-sm flex items-center gap-2">
-              <FileSpreadsheet className="w-4.5 h-4.5 text-blue-600" />
-              Laporan Rekapitulasi Persediaan (Katalog BMN)
-            </h4>
-            <p className="text-xs text-gray-500 leading-relaxed">
-              Laporan komprehensif berisi kode barang, nama barang, lokasi rak, volume sisa stok saat ini, dan satuan kuantitas persediaan BPMP Sumsel.
-            </p>
-          </div>
-          <div className="flex flex-wrap gap-2 pt-4 border-t border-gray-100">
-            <button
-              onClick={() => setShowBarangExportModal(true)}
-              className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold cursor-pointer"
-            >
-              <Printer className="w-3.5 h-3.5" /> Cetak PDF (Kop Resmi)
-            </button>
-            <button
-              onClick={() => setShowBarangExportModal(true)}
-              className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-bold cursor-pointer"
-            >
-              <Download className="w-3.5 h-3.5 text-green-400" /> Export Excel/CSV
-            </button>
-          </div>
-        </div>
+      {activeReportTab === 'bulanan' ? (
+        <LaporanBulanan
+          barangMasukList={barangMasukList}
+          barangKeluarList={barangKeluarList}
+          riwayatList={riwayat}
+          barangList={barang}
+          settings={settings}
+        />
+      ) : (
+        <div className="space-y-6">
+          {/* Quick stats on inventory health */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div className="bg-white p-4 border border-gray-200 rounded-2xl shadow-sm flex items-center gap-4">
+              <div className="bg-blue-50 text-blue-600 p-3 rounded-xl">
+                <Package className="w-6 h-6" />
+              </div>
+              <div>
+                <span className="text-xs text-gray-500 block font-medium">Total Katalog BMN</span>
+                <span className="text-lg font-bold text-gray-900 block mt-0.5">{totalBarang} Jenis Item</span>
+              </div>
+            </div>
 
-        {/* Laporan Transaksi Bulanan */}
-        <div className="bg-white p-5 border border-gray-200 rounded-2xl shadow-sm space-y-4 flex flex-col justify-between">
-          <div className="space-y-1.5">
-            <h4 className="font-bold text-gray-900 text-sm flex items-center gap-2">
-              <FileSpreadsheet className="w-4.5 h-4.5 text-green-600" />
-              Laporan Buku Mutasi Transaksi (Buku Besar)
-            </h4>
-            <p className="text-xs text-gray-500 leading-relaxed">
-              Mengekspor berkas riwayat seluruh sirkulasi keluar dan masuk barang yang disahkan oleh penanggung jawab per semester.
-            </p>
+            <div className="bg-white p-4 border border-gray-200 rounded-2xl shadow-sm flex items-center gap-4">
+              <div className="bg-emerald-50 text-emerald-600 p-3 rounded-xl">
+                <PackageCheck className="w-6 h-6" />
+              </div>
+              <div>
+                <span className="text-xs text-gray-500 block font-medium">Kesehatan Katalog</span>
+                <span className="text-lg font-bold text-gray-900 block mt-0.5">
+                  {totalBarang > 0 ? Math.round(((totalBarang - stokMenipis - stokHabis) / totalBarang) * 100) : 100}% Aman
+                </span>
+              </div>
+            </div>
+
+            <div className="bg-white p-4 border border-gray-200 rounded-2xl shadow-sm flex items-center gap-4">
+              <div className="bg-amber-50 text-amber-600 p-3 rounded-xl">
+                <AlertTriangle className="w-6 h-6" />
+              </div>
+              <div>
+                <span className="text-xs text-gray-500 block font-medium">Item Perlu Restok</span>
+                <span className="text-lg font-bold text-gray-900 block mt-0.5">{stokMenipis + stokHabis} Item</span>
+              </div>
+            </div>
           </div>
-          <div className="flex flex-wrap gap-2 pt-4 border-t border-gray-100">
-            <button
-              onClick={() => setShowRiwayatExportModal(true)}
-              className="w-full flex items-center justify-center gap-1.5 px-3 py-2 bg-slate-100 hover:bg-slate-200 border border-slate-300 text-slate-700 rounded-xl text-xs font-bold cursor-pointer"
-            >
-              <Download className="w-3.5 h-3.5 text-blue-600" /> Unduh Laporan Mutasi (.csv / PDF)
-            </button>
+
+          {/* Reports portal section with bento items */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {/* Laporan Rekapitulasi Persediaan */}
+            <div className="bg-white p-5 border border-gray-200 rounded-2xl shadow-sm space-y-4 flex flex-col justify-between">
+              <div className="space-y-1.5">
+                <h4 className="font-bold text-gray-900 text-sm flex items-center gap-2">
+                  <FileSpreadsheet className="w-4.5 h-4.5 text-blue-600" />
+                  Laporan Rekapitulasi Persediaan (Katalog BMN)
+                </h4>
+                <p className="text-xs text-gray-500 leading-relaxed">
+                  Laporan komprehensif berisi kode barang, nama barang, lokasi rak, volume sisa stok saat ini, dan satuan kuantitas persediaan BPMP Sumsel.
+                </p>
+              </div>
+              <div className="flex flex-wrap gap-2 pt-4 border-t border-gray-100">
+                <button
+                  onClick={() => setShowBarangExportModal(true)}
+                  className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold cursor-pointer"
+                >
+                  <Printer className="w-3.5 h-3.5" /> Cetak PDF (Kop Resmi)
+                </button>
+                <button
+                  onClick={() => setShowBarangExportModal(true)}
+                  className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-bold cursor-pointer"
+                >
+                  <Download className="w-3.5 h-3.5 text-green-400" /> Export Excel/CSV
+                </button>
+              </div>
+            </div>
+
+            {/* Laporan Transaksi Bulanan */}
+            <div className="bg-white p-5 border border-gray-200 rounded-2xl shadow-sm space-y-4 flex flex-col justify-between">
+              <div className="space-y-1.5">
+                <h4 className="font-bold text-gray-900 text-sm flex items-center gap-2">
+                  <FileSpreadsheet className="w-4.5 h-4.5 text-green-600" />
+                  Laporan Buku Mutasi Transaksi (Buku Besar)
+                </h4>
+                <p className="text-xs text-gray-500 leading-relaxed">
+                  Mengekspor berkas riwayat seluruh sirkulasi keluar dan masuk barang yang disahkan oleh penanggung jawab per semester.
+                </p>
+              </div>
+              <div className="flex flex-wrap gap-2 pt-4 border-t border-gray-100">
+                <button
+                  onClick={() => setShowRiwayatExportModal(true)}
+                  className="w-full flex items-center justify-center gap-1.5 px-3 py-2 bg-slate-100 hover:bg-slate-200 border border-slate-300 text-slate-700 rounded-xl text-xs font-bold cursor-pointer"
+                >
+                  <Download className="w-3.5 h-3.5 text-blue-600" /> Unduh Laporan Mutasi (.csv / PDF)
+                </button>
+              </div>
+            </div>
           </div>
         </div>
-      </div>
+      )}
 
       {/* Export Confirm Modal untuk Katalog Barang */}
       <ExportConfirmModal<Barang>

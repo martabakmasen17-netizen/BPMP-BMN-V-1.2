@@ -697,7 +697,7 @@ const handler = setTimeout(async () => {
 
   // --- TRANS MUTATION CONTROLLERS ---
 
-  const handleProcessTransaksiMasuk = (trans: Omit<BarangMasuk, 'id' | 'tanggal'>) => {
+  const handleProcessTransaksiMasuk = (trans: Omit<BarangMasuk, 'id' | 'tanggal'>, langsungKeluar?: { unitId: string, keperluan: string, petugas: string, catatan: string }) => {
     const newId = `TRM-${new Date().toISOString().slice(2, 10).replace(/-/g, '')}-${String(barangMasukList.length + 1).padStart(2, '0')}`;
     const timestamp = new Date().toISOString();
 
@@ -747,6 +747,19 @@ const handler = setTimeout(async () => {
       'Transaksi Masuk',
       `Menerima barang masuk: ${trans.jumlah} unit "${trans.namaBarang}" dari ${trans.supplier} (${newId})`
     );
+
+    // Handle Langsung Keluar jika ada
+    if (langsungKeluar) {
+       handleProcessTransaksiKeluar({
+         barangId: trans.barangId,
+         namaBarang: trans.namaBarang,
+         jumlah: trans.jumlah,
+         unitId: langsungKeluar.unitId,
+         petugas: langsungKeluar.petugas,
+         keperluan: langsungKeluar.keperluan,
+         catatan: langsungKeluar.catatan
+       });
+    }
 
     // 5. Trigger system notification
     sendSystemNotification(
@@ -1338,11 +1351,12 @@ const handler = setTimeout(async () => {
                   supplierList={supplierList}
                   transaksiList={barangMasukList}
                   onProcessTransaksi={handleProcessTransaksiMasuk}
+                  unitList={unitList}
+                  pegawaiList={pegawaiList}
                   onDeleteTransaksi={handleDeleteBarangMasuk}
                   currentUserRole={currentRole}
                   quickAddBarangId={quickAddBarangId}
                   clearQuickAdd={() => setQuickAddBarangId('')}
-                  pegawaiList={pegawaiList}
                   folderId={settings?.folderDokumenId || settings?.folderReportsId}
                 />
               )}
@@ -1374,7 +1388,14 @@ const handler = setTimeout(async () => {
               )}
 
               {activeTab === 'laporan' && (
-                <LaporanView barang={barangList} riwayat={riwayatList} instituteName={settings.namaInstitusi} settings={settings} />
+                <LaporanView 
+                  barang={barangList} 
+                  riwayat={riwayatList} 
+                  barangMasukList={barangMasukList}
+                  barangKeluarList={barangKeluarList}
+                  instituteName={settings.namaInstitusi} 
+                  settings={settings} 
+                />
               )}
 
               {activeTab === 'pengaturan' && (

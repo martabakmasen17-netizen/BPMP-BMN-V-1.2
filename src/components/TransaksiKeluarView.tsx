@@ -98,7 +98,7 @@ export default function TransaksiKeluarView({
   });
 
   const [jumlah, setJumlah] = useState<number>(1);
-  const [selectedUnitId, setSelectedUnitId] = useState(unitList[0]?.nama || '');
+  const [selectedUnitId, setSelectedUnitId] = useState(unitList?.[0]?.nama || '');
   const [petugas, setPetugas] = useState(() => pegawaiList?.[0]?.nama || 'Roni Setiawan');
   const [keperluan, setKeperluan] = useState('');
   const [catatan, setCatatan] = useState('');
