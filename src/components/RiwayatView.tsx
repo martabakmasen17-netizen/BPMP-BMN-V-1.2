@@ -249,7 +249,7 @@ export default function RiwayatView({ riwayat, barang = [], settings, currentUse
     document.body.removeChild(link);
   };
 
-  const executePrintOfficialBMNSummaryPDF = (filteredMutasi: Riwayat[], summaryText: string) => {
+  const executePrintOfficialBMNSummaryPDF = (filteredMutasi: Riwayat[], summaryText: string, dateRange?: {start: string, end: string}) => {
     const printWindow = window.open('', '_blank');
     if (!printWindow) return;
 
@@ -265,6 +265,35 @@ export default function RiwayatView({ riwayat, barang = [], settings, currentUse
       month: '2-digit',
       year: 'numeric'
     }).replace(/\//g, '-');
+
+    let periodEndStr = todayDate.toUpperCase();
+    let periodStartDisplay = `01-01-${currentYear}`;
+    let periodEndDisplay = todayDate;
+
+    if (dateRange) {
+        const endDate = new Date(dateRange.end);
+        if (!isNaN(endDate.getTime())) {
+            periodEndDisplay = endDate.toLocaleDateString('id-ID', {
+                day: '2-digit',
+                month: '2-digit',
+                year: 'numeric'
+            }).replace(/\//g, '-');
+            periodEndStr = endDate.toLocaleDateString('id-ID', {
+                day: 'numeric',
+                month: 'long',
+                year: 'numeric'
+            }).toUpperCase();
+        }
+        
+        const startDate = new Date(dateRange.start);
+        if (!isNaN(startDate.getTime())) {
+            periodStartDisplay = startDate.toLocaleDateString('id-ID', {
+                day: '2-digit',
+                month: '2-digit',
+                year: 'numeric'
+            }).replace(/\//g, '-');
+        }
+    }
 
     const uapb = settings?.uapb || 'KEMENTERIAN PENDIDIKAN DASAR DAN MENENGAH';
     const uappbE1 = settings?.uappbE1 || 'DIREKTORAT JENDERAL PENDIDIKAN ANAK USIA DINI, PENDIDIKAN DASAR, DAN PENDIDIKAN MENENGAH';
@@ -301,12 +330,22 @@ export default function RiwayatView({ riwayat, barang = [], settings, currentUse
       `;
 
       items.forEach((b) => {
-        // Calculate mutasi for item b in filteredMutasi
         const itemMutasi = filteredMutasi.filter(r => r.barangId === b.id || r.namaBarang === b.nama);
         const masuk = itemMutasi.filter(r => r.tipe === 'Masuk').reduce((sum, r) => sum + (Number(r.jumlah) || 0), 0);
         const keluar = itemMutasi.filter(r => r.tipe === 'Keluar').reduce((sum, r) => sum + (Number(r.jumlah) || 0), 0);
         const mutasiNet = masuk - keluar;
-        const stokAkhir = Number(b.stokSekarang) || 0;
+        
+        let mutasiNetAfter = 0;
+        if (dateRange) {
+          const allItemMutasi = riwayat.filter(r => r.barangId === b.id || r.namaBarang === b.nama);
+          const mutasiAfterEnd = allItemMutasi.filter(r => r.tanggal > dateRange.end + 'T23:59:59Z');
+          const masukAfter = mutasiAfterEnd.filter(r => r.tipe === 'Masuk').reduce((sum, r) => sum + (Number(r.jumlah) || 0), 0);
+          const keluarAfter = mutasiAfterEnd.filter(r => r.tipe === 'Keluar').reduce((sum, r) => sum + (Number(r.jumlah) || 0), 0);
+          mutasiNetAfter = masukAfter - keluarAfter;
+        }
+
+        const stokSekarangReal = Number(b.stokSekarang) || 0;
+        const stokAkhir = stokSekarangReal - mutasiNetAfter;
         const stokAwal = Math.max(0, stokAkhir - mutasiNet);
 
         // Display code (formatted sequence like 000001)
@@ -433,7 +472,7 @@ export default function RiwayatView({ riwayat, barang = [], settings, currentUse
           <div class="title-section">
             LAPORAN RINCIAN BARANG PERSEDIAAN<br/>
             <div class="subtitle">
-              UNTUK PERIODE YANG BERAKHIR TANGGAL ${todayDate.toUpperCase()}<br/>
+              UNTUK PERIODE YANG BERAKHIR TANGGAL ${periodEndStr}<br/>
               TAHUN ANGGARAN : ${currentYear}
             </div>
           </div>
@@ -458,9 +497,9 @@ export default function RiwayatView({ riwayat, barang = [], settings, currentUse
               <tr>
                 <th rowspan="2" style="width: 65px;">KODE</th>
                 <th rowspan="2">URAIAN</th>
-                <th colspan="2">NILAI<br/><span style="font-weight:normal; font-size:7pt;">S/D 01-01-${currentYear}</span></th>
+                <th colspan="2">NILAI<br/><span style="font-weight:normal; font-size:7pt;">S/D ${periodStartDisplay}</span></th>
                 <th colspan="3">MUTASI</th>
-                <th colspan="2">NILAI<br/><span style="font-weight:normal; font-size:7pt;">S/D ${currentMonthDateStr}</span></th>
+                <th colspan="2">NILAI<br/><span style="font-weight:normal; font-size:7pt;">S/D ${periodEndDisplay}</span></th>
               </tr>
               <tr>
                 <th style="width: 55px;">JUMLAH</th>
@@ -760,8 +799,8 @@ export default function RiwayatView({ riwayat, barang = [], settings, currentUse
         dataList={filteredRiwayat}
         getDateFn={item => item.tanggal || ''}
         allowedFormats={['pdf']}
-        onConfirm={(filteredData, format, summaryText) => {
-          executePrintOfficialBMNSummaryPDF(filteredData, summaryText);
+        onConfirm={(filteredData, format, summaryText, dateRange) => {
+          executePrintOfficialBMNSummaryPDF(filteredData, summaryText, dateRange);
         }}
       />
     </div>

@@ -59,14 +59,15 @@ export default function DashboardView({
 }: DashboardViewProps) {
   // Calculations
   const totalBarang = barang.length;
-  const stokAman = barang.filter(b => Number(b.stokSekarang) >= Number(b.stokMin) && Number(b.stokSekarang) > 0).length;
-  const stokMenipis = barang.filter(b => Number(b.stokSekarang) < Number(b.stokMin) && Number(b.stokSekarang) > 0).length;
+  const getStokMin = (b: Barang) => Number(b.stokMin) > 0 ? Number(b.stokMin) : 5;
+  const stokAman = barang.filter(b => Number(b.stokSekarang) > getStokMin(b)).length;
+  const stokMenipis = barang.filter(b => Number(b.stokSekarang) <= getStokMin(b) && Number(b.stokSekarang) > 0).length;
   const stokHabis = barang.filter(b => Number(b.stokSekarang) === 0).length;
 
   const totalStokUnit = barang.reduce((sum, item) => sum + Number(item.stokSekarang), 0);
 
-  // Get items with low stock (stokSekarang < stokMin)
-  const barangRendah = barang.filter(b => b.stokSekarang < b.stokMin).sort((a, b) => a.stokSekarang - b.stokSekarang);
+  // Get items with low stock (stokSekarang <= stokMin)
+  const barangRendah = barang.filter(b => Number(b.stokSekarang) <= getStokMin(b)).sort((a, b) => Number(a.stokSekarang) - Number(b.stokSekarang));
 
   // Categorize for charts
   const categoryCounts: { [key: string]: number } = {};
@@ -621,7 +622,7 @@ export default function DashboardView({
                       <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${item.stokSekarang === 0 ? 'bg-[#FEE2E2] text-[#991B1B]' : 'bg-[#FEF3C7] text-[#92400E]'}`}>
                         {item.stokSekarang} {item.satuan}
                       </span>
-                      <span className="text-[10px] text-[#6B7280] font-medium">Min: {item.stokMin}</span>
+                      <span className="text-[10px] text-[#6B7280] font-medium">Min: {Number(item.stokMin) > 0 ? item.stokMin : 5}</span>
                     </div>
                   </div>
                   <button

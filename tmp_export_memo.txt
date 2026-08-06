@@ -1,0 +1,121 @@
+  const { filteredData, summaryText } = useMemo(() => {
+    if (filterCategory === 'all') {
+      return {
+        filteredData: dataList,
+        summaryText: 'Semua Periode (Keseluruhan Data)'
+      };
+    }
+
+    if (filterCategory === 'monthly') {
+      if (monthlySubMode === 'single') {
+        if (!singleMonth) return { filteredData: dataList, summaryText: 'Bulan Belum Dipilih' };
+        const result = dataList.filter(item => {
+          const d = getDateFn(item);
+          return d && d.startsWith(singleMonth);
+        });
+        const monthLabel = new Date(singleMonth + '-01').toLocaleDateString('id-ID', {
+          month: 'long',
+          year: 'numeric'
+        });
+        return {
+          filteredData: result,
+          summaryText: `Bulan ${monthLabel}`
+        };
+      }
+
+      if (monthlySubMode === 'range') {
+        if (!rangeMonthStart || !rangeMonthEnd) {
+          return { filteredData: dataList, summaryText: 'Rentang Bulan Belum Lengkap' };
+        }
+        const start = rangeMonthStart < rangeMonthEnd ? rangeMonthStart : rangeMonthEnd;
+        const end = rangeMonthStart < rangeMonthEnd ? rangeMonthEnd : rangeMonthStart;
+        const result = dataList.filter(item => {
+          const d = getDateFn(item);
+          if (!d) return false;
+          const m = d.slice(0, 7);
+          return m >= start && m <= end;
+        });
+        return {
+          filteredData: result,
+          summaryText: `Rentang Bulan ${start} s.d ${end}`
+        };
+      }
+
+      if (monthlySubMode === 'multiple') {
+        if (selectedMonthsList.length === 0) {
+          return { filteredData: [], summaryText: 'Tidak Ada Bulan Dipilih' };
+        }
+        const result = dataList.filter(item => {
+          const d = getDateFn(item);
+          if (!d) return false;
+          const m = d.slice(0, 7);
+          return selectedMonthsList.includes(m);
+        });
+        return {
+          filteredData: result,
+          summaryText: `Beberapa Bulan (${selectedMonthsList.length} bulan terpilih)`
+        };
+      }
+    }
+
+    if (filterCategory === 'daily') {
+      if (dailySubMode === 'single') {
+        if (!singleDate) return { filteredData: dataList, summaryText: 'Tanggal Belum Dipilih' };
+        const result = dataList.filter(item => {
+          const d = getDateFn(item);
+          return d && d.startsWith(singleDate);
+        });
+        const dateLabel = new Date(singleDate).toLocaleDateString('id-ID', {
+          day: 'numeric',
+          month: 'long',
+          year: 'numeric'
+        });
+        return {
+          filteredData: result,
+          summaryText: `Tanggal ${dateLabel}`
+        };
+      }
+
+      if (dailySubMode === 'range') {
+        if (!rangeDateStart || !rangeDateEnd) {
+          return { filteredData: dataList, summaryText: 'Rentang Tanggal Belum Lengkap' };
+        }
+        const start = rangeDateStart < rangeDateEnd ? rangeDateStart : rangeDateEnd;
+        const end = rangeDateStart < rangeDateEnd ? rangeDateEnd : rangeDateStart;
+        const result = dataList.filter(item => {
+          const d = getDateFn(item);
+          if (!d) return false;
+          const dateStr = d.slice(0, 10);
+          return dateStr >= start && dateStr <= end;
+        });
+        return {
+          filteredData: result,
+          summaryText: `Rentang Tanggal ${start} s.d ${end}`
+        };
+      }
+
+      if (dailySubMode === 'multiple') {
+        if (selectedDatesList.length === 0) {
+          return { filteredData: [], summaryText: 'Tidak Ada Tanggal Dipilih' };
+        }
+        const result = dataList.filter(item => {
+          const d = getDateFn(item);
+          if (!d) return false;
+          const dateStr = d.slice(0, 10);
+          return selectedDatesList.includes(dateStr);
+        });
+        return {
+          filteredData: result,
+          summaryText: `Beberapa Tanggal (${selectedDatesList.length} hari terpilih)`
+        };
+      }
+    }
+
+    return { filteredData: dataList, summaryText: 'Keseluruhan Data' };
+  }, [
+    dataList,
+    getDateFn,
+    filterCategory,
+    monthlySubMode,
+    singleMonth,
+    rangeMonthStart,

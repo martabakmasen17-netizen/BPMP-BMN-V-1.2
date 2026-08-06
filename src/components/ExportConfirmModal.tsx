@@ -35,7 +35,8 @@ interface ExportConfirmModalProps<T> {
   onConfirm: (
     filteredData: T[],
     format: ExportFormat,
-    summaryText: string
+    summaryText: string,
+    dateRange?: { start: string, end: string }
   ) => void;
   allowedFormats?: ExportFormat[]; // default ['pdf', 'excel']
 }
@@ -107,7 +108,7 @@ export default function ExportConfirmModal<T>({
   }, [availableMonths, availableDates]);
 
   // Compute Filtered Data & Summary Label
-  const { filteredData, summaryText } = useMemo(() => {
+  const { filteredData, summaryText, dateRange } = useMemo(() => {
     if (filterCategory === 'all') {
       return {
         filteredData: dataList,
@@ -128,7 +129,8 @@ export default function ExportConfirmModal<T>({
         });
         return {
           filteredData: result,
-          summaryText: `Bulan ${monthLabel}`
+          summaryText: `Bulan ${monthLabel}`,
+          dateRange: { start: `${singleMonth}-01`, end: `${singleMonth}-31` }
         };
       }
 
@@ -146,7 +148,8 @@ export default function ExportConfirmModal<T>({
         });
         return {
           filteredData: result,
-          summaryText: `Rentang Bulan ${start} s.d ${end}`
+          summaryText: `Rentang Bulan ${start} s.d ${end}`,
+          dateRange: { start: `${start}-01`, end: `${end}-31` }
         };
       }
 
@@ -160,9 +163,11 @@ export default function ExportConfirmModal<T>({
           const m = d.slice(0, 7);
           return selectedMonthsList.includes(m);
         });
+        const sorted = [...selectedMonthsList].sort();
         return {
           filteredData: result,
-          summaryText: `Beberapa Bulan (${selectedMonthsList.length} bulan terpilih)`
+          summaryText: `Beberapa Bulan (${selectedMonthsList.length} bulan terpilih)`,
+          dateRange: sorted.length > 0 ? { start: `${sorted[0]}-01`, end: `${sorted[sorted.length - 1]}-31` } : undefined
         };
       }
     }
@@ -181,7 +186,8 @@ export default function ExportConfirmModal<T>({
         });
         return {
           filteredData: result,
-          summaryText: `Tanggal ${dateLabel}`
+          summaryText: `Tanggal ${dateLabel}`,
+          dateRange: { start: singleDate, end: singleDate }
         };
       }
 
@@ -199,7 +205,8 @@ export default function ExportConfirmModal<T>({
         });
         return {
           filteredData: result,
-          summaryText: `Rentang Tanggal ${start} s.d ${end}`
+          summaryText: `Rentang Tanggal ${start} s.d ${end}`,
+          dateRange: { start, end }
         };
       }
 
@@ -213,14 +220,16 @@ export default function ExportConfirmModal<T>({
           const dateStr = d.slice(0, 10);
           return selectedDatesList.includes(dateStr);
         });
+        const sorted = [...selectedDatesList].sort();
         return {
           filteredData: result,
-          summaryText: `Beberapa Tanggal (${selectedDatesList.length} hari terpilih)`
+          summaryText: `Beberapa Tanggal (${selectedDatesList.length} hari terpilih)`,
+          dateRange: sorted.length > 0 ? { start: sorted[0], end: sorted[sorted.length - 1] } : undefined
         };
       }
     }
 
-    return { filteredData: dataList, summaryText: 'Keseluruhan Data' };
+    return { filteredData: dataList, summaryText: 'Keseluruhan Data', dateRange: undefined };
   }, [
     dataList,
     getDateFn,
@@ -252,7 +261,7 @@ export default function ExportConfirmModal<T>({
   };
 
   const handleExecuteExport = () => {
-    onConfirm(filteredData, selectedFormat, summaryText);
+    onConfirm(filteredData, selectedFormat, summaryText, dateRange);
     onClose();
   };
 
