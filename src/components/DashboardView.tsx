@@ -753,8 +753,8 @@ export default function DashboardView({
           {recentLogs.length === 0 ? (
             <div className="py-6 text-center text-xs text-[#6B7280]">Belum ada aktivitas tercatat</div>
           ) : (
-            recentLogs.slice(0, 5).map(log => (
-              <div key={log.id} className="py-3 flex flex-col sm:flex-row items-start gap-1 sm:gap-3 text-xs">
+            recentLogs.slice(0, 5).map((log, idx) => (
+              <div key={`${log.id}-${idx}`} className="py-3 flex flex-col sm:flex-row items-start gap-1 sm:gap-3 text-xs">
                 <div className="w-full sm:min-w-[120px] sm:w-auto text-[#6B7280] font-medium flex items-center justify-between sm:justify-start">
                   <span>{new Date(log.tanggal).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })} - {new Date(log.tanggal).toLocaleDateString('id-ID')}</span>
                   <span className="sm:hidden font-bold text-[#111827] bg-slate-100 px-1.5 py-0.5 rounded uppercase text-[9px]">{log.aksi}</span>

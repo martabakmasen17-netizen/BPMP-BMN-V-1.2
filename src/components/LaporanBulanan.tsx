@@ -792,7 +792,8 @@ export default function LaporanBulanan({
         </div>
 
         {/* Main Daily Data Table */}
-        <div className="overflow-x-auto">
+        {/* DESKTOP / TABLET TABLE VIEW (Visible on >= 640px) */}
+        <div className="hidden sm:block overflow-x-auto">
           <table className="w-full text-left border-collapse text-xs">
             <thead>
               <tr className="bg-slate-100/80 border-b border-slate-200 text-slate-700 font-bold uppercase tracking-wider text-[10px]">
@@ -1077,6 +1078,176 @@ export default function LaporanBulanan({
               </tr>
             </tfoot>
           </table>
+        </div>
+
+        {/* MOBILE CARD VIEW (Visible on < 640px) */}
+        <div className="block sm:hidden divide-y divide-slate-100">
+          {filteredDailyList.length === 0 ? (
+            <div className="p-8 text-center text-slate-400">
+              <Calendar className="w-8 h-8 text-slate-300 stroke-1 mx-auto mb-2" />
+              <p className="text-xs font-semibold text-slate-500">Tidak ada data harian yang cocok</p>
+            </div>
+          ) : (
+            filteredDailyList.map(item => {
+              const isExpanded = expandedDay === item.dayNumber;
+              const hasActivity = item.totalTrx > 0;
+
+              return (
+                <div
+                  key={`mobile_day_${item.dateStr}`}
+                  className={`p-4 space-y-3 transition-colors ${
+                    item.isToday ? 'bg-blue-50/50' : 'bg-white hover:bg-slate-50/60'
+                  }`}
+                >
+                  {/* Top: Day badge, Date, and Net Saldo */}
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-2">
+                      <span className={`inline-flex items-center justify-center w-8 h-8 rounded-xl text-xs font-bold ${
+                        item.isToday
+                          ? 'bg-blue-600 text-white shadow-sm'
+                          : hasActivity
+                            ? 'bg-slate-800 text-white'
+                            : 'bg-slate-100 text-slate-600'
+                      }`}>
+                        {item.dayNumber}
+                      </span>
+                      <div>
+                        <div className="flex items-center gap-1.5">
+                          <span className="font-bold text-slate-900 text-xs">
+                            {item.dayName}, {item.dayNumber} {NAMA_BULAN[selectedMonth - 1]}
+                          </span>
+                          {item.isToday && (
+                            <span className="px-1.5 py-0.2 bg-blue-100 text-blue-700 text-[9px] font-bold rounded">
+                              Hari Ini
+                            </span>
+                          )}
+                          {item.isWeekend && (
+                            <span className="px-1.5 py-0.2 bg-slate-200 text-slate-600 text-[9px] font-medium rounded">
+                              Libur
+                            </span>
+                          )}
+                        </div>
+                        <span className="text-[10px] text-slate-400 font-mono block mt-0.5">{item.dateStr}</span>
+                      </div>
+                    </div>
+
+                    {hasActivity && (
+                      <span className={`px-2 py-0.5 rounded-full text-xs font-bold ${
+                        item.netVolume > 0
+                          ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                          : item.netVolume < 0
+                            ? 'bg-rose-50 text-rose-700 border border-rose-200'
+                            : 'bg-slate-100 text-slate-600'
+                      }`}>
+                        {item.netVolume > 0 ? `+${item.netVolume}` : item.netVolume} Net
+                      </span>
+                    )}
+                  </div>
+
+                  {/* Volume Masuk & Keluar Stats Grid */}
+                  <div className="grid grid-cols-2 gap-2 text-xs">
+                    <div className="bg-emerald-50/60 border border-emerald-100 rounded-xl p-2.5">
+                      <span className="text-[10px] font-bold text-emerald-800 uppercase block">Barang Masuk</span>
+                      <span className="font-extrabold text-emerald-900 text-sm block mt-0.5">
+                        +{item.volumeMasuk} <span className="text-[10px] font-normal text-emerald-700">Unit</span>
+                      </span>
+                      <span className="text-[10px] text-emerald-600 font-medium block">
+                        {item.countMasuk} Transaksi
+                      </span>
+                    </div>
+
+                    <div className="bg-rose-50/60 border border-rose-100 rounded-xl p-2.5">
+                      <span className="text-[10px] font-bold text-rose-800 uppercase block">Barang Keluar</span>
+                      <span className="font-extrabold text-rose-900 text-sm block mt-0.5">
+                        -{item.volumeKeluar} <span className="text-[10px] font-normal text-rose-700">Unit</span>
+                      </span>
+                      <span className="text-[10px] text-rose-600 font-medium block">
+                        {item.countKeluar} Transaksi
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Item Chips Preview or Expand Toggle */}
+                  {hasActivity ? (
+                    <div className="space-y-2">
+                      <button
+                        onClick={() => setExpandedDay(isExpanded ? null : item.dayNumber)}
+                        className="w-full py-1.5 px-3 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl font-bold text-xs flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
+                      >
+                        {isExpanded ? 'Tutup Rincian Harian' : `Lihat Rincian (${item.totalTrx} Transaksi)`}
+                      </button>
+
+                      {isExpanded && (
+                        <div className="bg-slate-50 border border-slate-200 rounded-xl p-3 space-y-3 text-xs">
+                          {item.itemsMasuk.length > 0 && (
+                            <div className="space-y-1.5">
+                              <span className="text-[10px] font-bold text-emerald-800 uppercase tracking-wider block">
+                                📥 Masuk ({item.itemsMasuk.length})
+                              </span>
+                              <div className="space-y-1">
+                                {item.itemsMasuk.map((m, idx) => (
+                                  <div key={idx} className="p-2 bg-white rounded-lg border border-emerald-100 flex items-center justify-between text-xs">
+                                    <span className="font-medium text-slate-800">{m.nama}</span>
+                                    <span className="font-bold text-emerald-700">+{m.jumlah}</span>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+
+                          {item.itemsKeluar.length > 0 && (
+                            <div className="space-y-1.5">
+                              <span className="text-[10px] font-bold text-rose-800 uppercase tracking-wider block">
+                                📤 Keluar ({item.itemsKeluar.length})
+                              </span>
+                              <div className="space-y-1">
+                                {item.itemsKeluar.map((k, idx) => (
+                                  <div key={idx} className="p-2 bg-white rounded-lg border border-rose-100 flex items-center justify-between text-xs">
+                                    <div>
+                                      <span className="font-medium text-slate-800 block">{k.nama}</span>
+                                      {k.unit && <span className="text-[10px] text-slate-400">{k.unit}</span>}
+                                    </div>
+                                    <span className="font-bold text-rose-700">-{k.jumlah}</span>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  ) : (
+                    <div className="text-[11px] text-slate-400 italic text-center py-1">
+                      Tidak ada transaksi pada tanggal ini
+                    </div>
+                  )}
+                </div>
+              );
+            })
+          )}
+
+          {/* Mobile Footer Rekapitulasi Summary */}
+          <div className="p-4 bg-slate-900 text-white rounded-b-2xl space-y-2 text-xs">
+            <div className="font-bold uppercase text-[11px] tracking-wider text-slate-200">
+              REKAP TOTAL {NAMA_BULAN[selectedMonth - 1]} {selectedYear}
+            </div>
+            <div className="grid grid-cols-3 gap-2 pt-1 border-t border-slate-800">
+              <div>
+                <span className="text-[10px] text-slate-400 block">Masuk:</span>
+                <span className="font-bold text-emerald-400">+{rekapData.totalVolumeMasukBulanIni}</span>
+              </div>
+              <div>
+                <span className="text-[10px] text-slate-400 block">Keluar:</span>
+                <span className="font-bold text-rose-400">-{rekapData.totalVolumeKeluarBulanIni}</span>
+              </div>
+              <div>
+                <span className="text-[10px] text-slate-400 block">Net Saldo:</span>
+                <span className={`font-bold ${rekapData.netSaldoBulanIni >= 0 ? 'text-blue-300' : 'text-amber-300'}`}>
+                  {rekapData.netSaldoBulanIni >= 0 ? `+${rekapData.netSaldoBulanIni}` : rekapData.netSaldoBulanIni}
+                </span>
+              </div>
+            </div>
+          </div>
         </div>
 
       </div>

@@ -1,4 +1,6 @@
-/**
+const fs = require('fs');
+
+const content = `/**
  * @license
  * SPDX-License-Identifier: Apache-2.0
  */
@@ -110,17 +112,17 @@ export default function AdminControlView({
     const confirmMsg = "PERINGATAN! Proses ini akan mengosongkan seluruh data Transaksi Masuk, Keluar, Riwayat, Audit Log, dan Notifikasi di sistem utama. Apakah Anda yakin ingin membuat sesi backup baru dan melanjutkan migrasi?";
     if (window.confirm(confirmMsg)) {
       // Create a simulated downloadable backup file (CSV format combined)
-      let csvContent = "Data Backup Logistik BMN - " + new Date().toLocaleDateString('id-ID') + "\n\n";
-      csvContent += "RIWAYAT TRANSAKSI:\n";
+      let csvContent = "Data Backup Logistik BMN - " + new Date().toLocaleDateString('id-ID') + "\\n\\n";
+      csvContent += "RIWAYAT TRANSAKSI:\\n";
       safeRiwayatList.forEach(r => {
-        csvContent += `${r.tanggal},${r.tipe},${r.namaBarang},${r.jumlah},${r.petugas},${r.keterangan}\n`;
+        csvContent += \`\${r.tanggal},\${r.tipe},\${r.namaBarang},\${r.jumlah},\${r.petugas},\${r.keterangan}\\n\`;
       });
       
       const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
       const url = URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.setAttribute('href', url);
-      link.setAttribute('download', `Backup_BMN_${new Date().getTime()}.csv`);
+      link.setAttribute('download', \`Backup_BMN_\${new Date().getTime()}.csv\`);
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
@@ -151,9 +153,9 @@ export default function AdminControlView({
           <div className="flex flex-wrap bg-slate-100 p-1.5 rounded-xl text-xs font-semibold self-start shrink-0">
             <button
               onClick={() => setActiveSubTab('akun')}
-              className={`flex items-center gap-1.5 px-4 py-2 rounded-lg cursor-pointer transition-all ${
+              className={\`flex items-center gap-1.5 px-4 py-2 rounded-lg cursor-pointer transition-all \${
                 activeSubTab === 'akun' ? 'bg-white text-indigo-600 shadow-sm font-bold' : 'text-slate-500 hover:text-slate-800'
-              }`}
+              }\`}
             >
               <Users className="w-4 h-4" /> Akun Pegawai {pendingAccounts.length > 0 && (
                 <span className="w-2.5 h-2.5 rounded-full bg-red-500 animate-pulse" />
@@ -161,17 +163,17 @@ export default function AdminControlView({
             </button>
             <button
               onClick={() => setActiveSubTab('statistik')}
-              className={`flex items-center gap-1.5 px-4 py-2 rounded-lg cursor-pointer transition-all ${
+              className={\`flex items-center gap-1.5 px-4 py-2 rounded-lg cursor-pointer transition-all \${
                 activeSubTab === 'statistik' ? 'bg-white text-indigo-600 shadow-sm font-bold' : 'text-slate-500 hover:text-slate-800'
-              }`}
+              }\`}
             >
               <TrendingUp className="w-4 h-4" /> Ringkasan Mutasi
             </button>
             <button
               onClick={() => setActiveSubTab('integrasi')}
-              className={`flex items-center gap-1.5 px-4 py-2 rounded-lg cursor-pointer transition-all ${
+              className={\`flex items-center gap-1.5 px-4 py-2 rounded-lg cursor-pointer transition-all \${
                 activeSubTab === 'integrasi' ? 'bg-white text-indigo-600 shadow-sm font-bold' : 'text-slate-500 hover:text-slate-800'
-              }`}
+              }\`}
             >
               <Settings className="w-4 h-4" /> Backup & Migrasi
             </button>
@@ -194,7 +196,7 @@ export default function AdminControlView({
                 {pendingAccounts.length > 0 ? (
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     {pendingAccounts.map((acc, idx) => {
-                      const usernameStr = String(acc?.username || `pending-${idx}`);
+                      const usernameStr = String(acc?.username || \`pending-\${idx}\`);
                       const namaStr = String(acc?.nama || 'Tanpa Nama');
                       const jabatanStr = String(acc?.jabatan || '-');
                       const tugasStr = String(acc?.tugas || getDefaultTugasByJabatan(jabatanStr));
@@ -220,8 +222,8 @@ export default function AdminControlView({
                                 <span className="text-[11px] font-bold text-slate-700 bg-slate-100 px-2 py-0.5 rounded-md border border-slate-200">
                                   {jabatanStr}
                                 </span>
-                                <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-bold border ${badgeStyle.badge}`}>
-                                  <span className={`w-1.5 h-1.5 rounded-full ${badgeStyle.dot}`}></span>
+                                <span className={\`inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-bold border \${badgeStyle.badge}\`}>
+                                  <span className={\`w-1.5 h-1.5 rounded-full \${badgeStyle.dot}\`}></span>
                                   {tugasStr}
                                 </span>
                               </div>
@@ -235,7 +237,7 @@ export default function AdminControlView({
                               <div className="flex justify-between items-center border-b border-slate-50 pb-1.5">
                                 <span className="text-slate-400 font-medium">No Telepon/WA:</span>
                                 <span className="font-bold text-indigo-600 hover:underline">
-                                  <a href={`https://wa.me/${teleponStr.replace(/[^0-9]/g, '')}`} target="_blank" rel="noopener noreferrer">
+                                  <a href={\`https://wa.me/\${teleponStr.replace(/[^0-9]/g, '')}\`} target="_blank" rel="noopener noreferrer">
                                     {teleponStr} 💬
                                   </a>
                                 </span>
@@ -283,8 +285,7 @@ export default function AdminControlView({
                   </h3>
                 </div>
                 
-                {/* DESKTOP / TABLET TABLE VIEW (Visible on >= 640px) */}
-                <div className="hidden sm:block overflow-x-auto bg-white rounded-2xl border border-slate-200 shadow-sm">
+                <div className="overflow-x-auto bg-white rounded-2xl border border-slate-200 shadow-sm">
                   <table className="w-full text-left border-collapse min-w-[1000px]">
                     <thead>
                       <tr className="bg-slate-50 border-b border-slate-200 text-slate-500 font-extrabold uppercase text-[10px] tracking-wider">
@@ -298,7 +299,7 @@ export default function AdminControlView({
                     </thead>
                     <tbody className="divide-y divide-slate-100 text-xs font-medium text-slate-700">
                       {activeOrRejectedAccounts.map((acc, idx) => {
-                        const usernameStr = String(acc?.username || `user-${idx}`);
+                        const usernameStr = String(acc?.username || \`user-\${idx}\`);
                         const isEditing = editingUser === usernameStr;
                         
                         return (
@@ -352,7 +353,7 @@ export default function AdminControlView({
                               ) : (
                                 <div className="space-y-1.5">
                                   <span className="font-bold text-slate-800 block">{acc.jabatan || '-'}</span>
-                                  <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-md text-[10px] font-bold border ${getTugasBadgeClass(acc.tugas || getDefaultTugasByJabatan(acc.jabatan || '')).badge}`}>
+                                  <span className={\`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-md text-[10px] font-bold border \${getTugasBadgeClass(acc.tugas || getDefaultTugasByJabatan(acc.jabatan || '')).badge}\`}>
                                     {acc.tugas || getDefaultTugasByJabatan(acc.jabatan || '')}
                                   </span>
                                 </div>
@@ -426,15 +427,15 @@ export default function AdminControlView({
                                 </div>
                               ) : (
                                 <div className="space-y-1.5 flex flex-col items-center">
-                                  <span className={`inline-block px-2 py-0.5 rounded-full text-[10px] font-bold border ${
+                                  <span className={\`inline-block px-2 py-0.5 rounded-full text-[10px] font-bold border \${
                                     acc.status === 'Disetujui' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 
                                     acc.status === 'Ditolak' ? 'bg-rose-50 text-rose-700 border-rose-200' : 'bg-amber-50 text-amber-700 border-amber-200'
-                                  }`}>
+                                  }\`}>
                                     {acc.status}
                                   </span>
-                                  <span className={`inline-block px-2 py-0.5 rounded-md text-[9px] font-bold border ${
+                                  <span className={\`inline-block px-2 py-0.5 rounded-md text-[9px] font-bold border \${
                                     acc.role === 'Administrator' ? 'bg-purple-50 text-purple-700 border-purple-200' : 'bg-slate-100 text-slate-600 border-slate-200'
-                                  }`}>
+                                  }\`}>
                                     {acc.role}
                                   </span>
                                 </div>
@@ -472,7 +473,7 @@ export default function AdminControlView({
                                     </button>
                                     <button
                                       onClick={() => {
-                                        if (window.confirm(`Yakin ingin menghapus akun ${usernameStr}?`)) {
+                                        if (window.confirm(\`Yakin ingin menghapus akun \${usernameStr}?\`)) {
                                           onDeleteAccount(usernameStr);
                                         }
                                       }}
@@ -494,223 +495,6 @@ export default function AdminControlView({
                     <div className="p-8 text-center text-slate-400 font-medium">
                       Belum ada akun yang terdaftar atau aktif.
                     </div>
-                  )}
-                </div>
-
-                {/* MOBILE CARD VIEW (Visible on < 640px) */}
-                <div className="block sm:hidden space-y-3">
-                  {activeOrRejectedAccounts.length === 0 ? (
-                    <div className="p-8 bg-white rounded-2xl border border-slate-200 text-center text-slate-400 font-medium">
-                      Belum ada akun yang terdaftar atau aktif.
-                    </div>
-                  ) : (
-                    activeOrRejectedAccounts.map((acc, idx) => {
-                      const usernameStr = String(acc?.username || `user-${idx}`);
-                      const isEditing = editingUser === usernameStr;
-                      const tugasVal = acc.tugas || getDefaultTugasByJabatan(acc.jabatan || '');
-                      const badgeStyle = getTugasBadgeClass(tugasVal);
-
-                      return (
-                        <div
-                          key={`mobile_acc_${usernameStr}`}
-                          className="bg-white rounded-2xl border border-slate-200 p-4 shadow-sm space-y-3"
-                        >
-                          {isEditing ? (
-                            /* Mobile Edit Mode Form */
-                            <div className="space-y-3 text-xs">
-                              <div className="flex items-center justify-between border-b border-slate-100 pb-2">
-                                <span className="font-bold text-indigo-700">Edit Akun: {usernameStr}</span>
-                                <span className="text-[10px] text-slate-400 font-mono">Mode Edit</span>
-                              </div>
-
-                              <div className="space-y-1">
-                                <label className="text-[10px] font-bold text-slate-500 uppercase">Nama Lengkap</label>
-                                <input
-                                  type="text"
-                                  className="w-full p-2 border border-indigo-300 rounded-xl text-xs focus:ring-2 focus:ring-indigo-500"
-                                  value={editFormData.nama}
-                                  onChange={e => setEditFormData({ ...editFormData, nama: e.target.value })}
-                                  placeholder="Nama Lengkap"
-                                />
-                              </div>
-
-                              <div className="grid grid-cols-2 gap-2">
-                                <div className="space-y-1">
-                                  <label className="text-[10px] font-bold text-slate-500 uppercase">NIP Pegawai</label>
-                                  <input
-                                    type="text"
-                                    className="w-full p-2 border border-indigo-300 rounded-xl text-xs font-mono focus:ring-2 focus:ring-indigo-500"
-                                    value={editFormData.nip}
-                                    onChange={e => setEditFormData({ ...editFormData, nip: e.target.value })}
-                                    placeholder="NIP"
-                                  />
-                                </div>
-                                <div className="space-y-1">
-                                  <label className="text-[10px] font-bold text-slate-500 uppercase">Telepon / WA</label>
-                                  <input
-                                    type="text"
-                                    className="w-full p-2 border border-indigo-300 rounded-xl text-xs focus:ring-2 focus:ring-indigo-500"
-                                    value={editFormData.telepon}
-                                    onChange={e => setEditFormData({ ...editFormData, telepon: e.target.value })}
-                                    placeholder="08..."
-                                  />
-                                </div>
-                              </div>
-
-                              <div className="grid grid-cols-2 gap-2">
-                                <div className="space-y-1">
-                                  <label className="text-[10px] font-bold text-slate-500 uppercase">Jabatan</label>
-                                  <input
-                                    type="text"
-                                    className="w-full p-2 border border-indigo-300 rounded-xl text-xs focus:ring-2 focus:ring-indigo-500"
-                                    value={editFormData.jabatan}
-                                    onChange={e => setEditFormData({ ...editFormData, jabatan: e.target.value })}
-                                    placeholder="Jabatan"
-                                  />
-                                </div>
-                                <div className="space-y-1">
-                                  <label className="text-[10px] font-bold text-slate-500 uppercase">Tugas</label>
-                                  <input
-                                    type="text"
-                                    className="w-full p-2 border border-indigo-300 rounded-xl text-xs focus:ring-2 focus:ring-indigo-500"
-                                    value={editFormData.tugas}
-                                    onChange={e => setEditFormData({ ...editFormData, tugas: e.target.value })}
-                                    placeholder="Tugas"
-                                  />
-                                </div>
-                              </div>
-
-                              <div className="space-y-1">
-                                <label className="text-[10px] font-bold text-slate-500 uppercase">Kata Sandi</label>
-                                <input
-                                  type="text"
-                                  className="w-full p-2 border border-indigo-300 rounded-xl text-xs font-mono focus:ring-2 focus:ring-indigo-500"
-                                  value={editFormData.password || ''}
-                                  onChange={e => setEditFormData({ ...editFormData, password: e.target.value })}
-                                  placeholder="Kata Sandi"
-                                />
-                              </div>
-
-                              <div className="grid grid-cols-2 gap-2">
-                                <div className="space-y-1">
-                                  <label className="text-[10px] font-bold text-slate-500 uppercase">Status</label>
-                                  <select
-                                    className="w-full p-2 border border-indigo-300 rounded-xl text-xs bg-white focus:ring-2 focus:ring-indigo-500"
-                                    value={editFormData.status}
-                                    onChange={e => setEditFormData({ ...editFormData, status: e.target.value as any })}
-                                  >
-                                    <option value="Disetujui">Disetujui</option>
-                                    <option value="Ditolak">Ditolak</option>
-                                  </select>
-                                </div>
-                                <div className="space-y-1">
-                                  <label className="text-[10px] font-bold text-slate-500 uppercase">Role</label>
-                                  <select
-                                    className="w-full p-2 border border-indigo-300 rounded-xl text-xs bg-white focus:ring-2 focus:ring-indigo-500"
-                                    value={editFormData.role}
-                                    onChange={e => setEditFormData({ ...editFormData, role: e.target.value as any })}
-                                  >
-                                    <option value="Petugas BMN">Petugas BMN</option>
-                                    <option value="Administrator">Administrator</option>
-                                  </select>
-                                </div>
-                              </div>
-
-                              <div className="flex gap-2 pt-2">
-                                <button
-                                  onClick={() => setEditingUser(null)}
-                                  className="flex-1 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl font-bold text-xs"
-                                >
-                                  Batal
-                                </button>
-                                <button
-                                  onClick={() => handleSaveEdit(usernameStr)}
-                                  className="flex-1 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-bold text-xs flex items-center justify-center gap-1.5"
-                                >
-                                  <Save className="w-3.5 h-3.5" /> Simpan
-                                </button>
-                              </div>
-                            </div>
-                          ) : (
-                            /* Mobile Display Mode Card */
-                            <div className="space-y-3 text-xs">
-                              <div className="flex items-start justify-between gap-2">
-                                <div>
-                                  <h4 className="font-extrabold text-slate-900 text-sm">{acc.nama}</h4>
-                                  <span className="text-[10px] text-slate-400 font-mono block">NIP: {acc.nip || '-'}</span>
-                                </div>
-
-                                <div className="flex items-center gap-1.5">
-                                  <span className={`inline-block px-2 py-0.5 rounded-full text-[10px] font-bold border ${
-                                    acc.status === 'Disetujui' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 
-                                    acc.status === 'Ditolak' ? 'bg-rose-50 text-rose-700 border-rose-200' : 'bg-amber-50 text-amber-700 border-amber-200'
-                                  }`}>
-                                    {acc.status}
-                                  </span>
-                                  <span className={`inline-block px-2 py-0.5 rounded-md text-[9px] font-bold border ${
-                                    acc.role === 'Administrator' ? 'bg-purple-50 text-purple-700 border-purple-200' : 'bg-slate-100 text-slate-600 border-slate-200'
-                                  }`}>
-                                    {acc.role}
-                                  </span>
-                                </div>
-                              </div>
-
-                              <div className="bg-slate-50 border border-slate-100 rounded-xl p-3 space-y-2 text-[11px] text-slate-600">
-                                <div className="flex items-center justify-between border-b border-slate-200/60 pb-1.5">
-                                  <span className="text-slate-400">Jabatan:</span>
-                                  <span className="font-bold text-slate-800">{acc.jabatan || '-'}</span>
-                                </div>
-                                <div className="flex items-center justify-between border-b border-slate-200/60 pb-1.5">
-                                  <span className="text-slate-400">Tugas / Peran:</span>
-                                  <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold border ${badgeStyle.badge}`}>
-                                    {tugasVal}
-                                  </span>
-                                </div>
-                                <div className="flex items-center justify-between border-b border-slate-200/60 pb-1.5">
-                                  <span className="text-slate-400">Username:</span>
-                                  <span className="font-mono font-bold text-slate-800 bg-white px-1.5 py-0.5 rounded border border-slate-200">{usernameStr}</span>
-                                </div>
-                                <div className="flex items-center justify-between border-b border-slate-200/60 pb-1.5">
-                                  <span className="text-slate-400">Kata Sandi:</span>
-                                  <span className="font-mono font-bold text-indigo-700 bg-white px-1.5 py-0.5 rounded border border-indigo-100 select-all">{acc.password || '-'}</span>
-                                </div>
-                                <div className="flex items-center justify-between">
-                                  <span className="text-slate-400">No. Telepon / WA:</span>
-                                  <a
-                                    href={`https://wa.me/${String(acc.telepon || '').replace(/[^0-9]/g, '')}`}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    className="font-bold text-indigo-600 hover:underline"
-                                  >
-                                    📞 {acc.telepon || '-'}
-                                  </a>
-                                </div>
-                              </div>
-
-                              <div className="flex items-center justify-end gap-2 pt-1">
-                                <button
-                                  onClick={() => handleStartEdit(acc)}
-                                  className="flex-1 py-1.5 px-3 bg-blue-50 hover:bg-blue-100 text-blue-700 rounded-xl font-bold text-xs flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
-                                >
-                                  <Edit className="w-3.5 h-3.5" /> Edit Akun
-                                </button>
-                                <button
-                                  onClick={() => {
-                                    if (window.confirm(`Yakin ingin menghapus akun ${usernameStr}?`)) {
-                                      onDeleteAccount(usernameStr);
-                                    }
-                                  }}
-                                  className="py-1.5 px-3 bg-rose-50 hover:bg-rose-100 text-rose-700 rounded-xl font-bold text-xs flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
-                                  title="Hapus Akun"
-                                >
-                                  <Trash2 className="w-3.5 h-3.5" /> Hapus
-                                </button>
-                              </div>
-                            </div>
-                          )}
-                        </div>
-                      );
-                    })
                   )}
                 </div>
               </div>
@@ -757,17 +541,17 @@ export default function AdminControlView({
                 <h4 className="font-extrabold text-gray-900 text-sm">Visualisasi Singkat & 5 Riwayat Terakhir</h4>
                 <div className="bg-white border border-slate-200 p-4 rounded-2xl space-y-3 shadow-sm">
                   {safeRiwayatList.slice(0, 5).map((r, idx) => (
-                    <div key={`${r.id}-${idx}`} className="flex justify-between items-center bg-slate-50 p-3.5 border border-slate-100 rounded-xl text-xs font-semibold hover:border-slate-300 transition-colors">
+                    <div key={r.id || \`history-\${idx}\`} className="flex justify-between items-center bg-slate-50 p-3.5 border border-slate-100 rounded-xl text-xs font-semibold hover:border-slate-300 transition-colors">
                       <div className="space-y-1.5">
-                        <span className={`inline-block px-2 py-0.5 rounded-md text-[9px] font-extrabold border ${
+                        <span className={\`inline-block px-2 py-0.5 rounded-md text-[9px] font-extrabold border \${
                           r.tipe === 'Masuk' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-rose-50 text-rose-700 border-rose-200'
-                        }`}>
+                        }\`}>
                           {r.tipe.toUpperCase()}
                         </span>
                         <h5 className="font-extrabold text-slate-900 text-[13px] leading-tight">{r.namaBarang}</h5>
                         <p className="text-[10px] text-slate-500 font-medium">Petugas: {r.petugas || '-'} • {formatDateSafe(r.tanggal)}</p>
                       </div>
-                      <span className={`font-black text-lg ${r.tipe === 'Masuk' ? 'text-emerald-600' : 'text-rose-600'}`}>
+                      <span className={\`font-black text-lg \${r.tipe === 'Masuk' ? 'text-emerald-600' : 'text-rose-600'}\`}>
                         {r.tipe === 'Masuk' ? '+' : '-'}{r.jumlah}
                       </span>
                     </div>
@@ -860,3 +644,6 @@ export default function AdminControlView({
     </div>
   );
 }
+`
+
+fs.writeFileSync('src/components/AdminControlView.tsx', content);

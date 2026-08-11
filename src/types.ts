@@ -15,6 +15,8 @@ export interface Barang {
   stokMaks: number;
   deskripsi: string;
   imageUrl: string;
+  lokasiRak?: string;
+  lokasi?: string;
   createdAt: string;
   updatedAt: string;
 }

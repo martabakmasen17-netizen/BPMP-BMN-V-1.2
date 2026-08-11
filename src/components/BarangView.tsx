@@ -404,7 +404,8 @@ export default function BarangView({
 
       {/* Responsive Grid/Table */}
       <div className="bg-white border border-gray-200 rounded-2xl shadow-sm overflow-hidden">
-        <div className="overflow-x-auto">
+        {/* DESKTOP / TABLET TABLE VIEW (Visible on >= 640px) */}
+        <div className="hidden sm:block overflow-x-auto">
           <table className="w-full text-left border-collapse text-sm min-w-[800px]">
             <thead>
               <tr className="bg-slate-50 border-b border-gray-100 text-slate-500 font-bold uppercase tracking-wider text-[11px]">
@@ -510,6 +511,104 @@ export default function BarangView({
               )}
             </tbody>
           </table>
+        </div>
+
+        {/* MOBILE CARD VIEW (Visible on < 640px) */}
+        <div className="block sm:hidden divide-y divide-gray-100">
+          {paginatedBarang.length === 0 ? (
+            <div className="p-10 text-center text-slate-400 flex flex-col items-center gap-3">
+              <div className="w-14 h-14 bg-slate-50 rounded-full flex items-center justify-center border border-slate-100">
+                <PackageCheck className="w-7 h-7 text-slate-300" />
+              </div>
+              <span className="font-medium text-xs">Tidak ada item barang persediaan ditemukan</span>
+            </div>
+          ) : (
+            paginatedBarang.map((item, idx) => {
+              const equiv = getEquivalentBaseStock(Number(item.stokSekarang) || 0, item.satuan, satuanList);
+              return (
+                <div key={`mobile_${item.id}_${idx}`} className="p-4 space-y-3 bg-white hover:bg-slate-50/60 transition-colors">
+                  {/* Top: Image, Name, and Status Badge */}
+                  <div className="flex items-start gap-3">
+                    <img
+                      src={item.imageUrl}
+                      alt={item.nama}
+                      referrerPolicy="no-referrer"
+                      className="w-14 h-14 rounded-xl object-cover bg-gray-50 border border-gray-200 shrink-0 shadow-xs"
+                    />
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-start justify-between gap-2">
+                        <h4 className="font-bold text-slate-900 text-xs leading-snug break-words">
+                          {item.nama}
+                        </h4>
+                      </div>
+                      <div className="flex flex-wrap items-center gap-1.5 mt-1.5">
+                        <span className="text-slate-600 text-[10px] font-mono font-bold bg-slate-100 border border-slate-200 px-2 py-0.5 rounded flex items-center gap-1">
+                          <Tag className="w-2.5 h-2.5" />
+                          {item.id.replace('-', '.')}
+                        </span>
+                        <span className="text-[10px] font-semibold text-blue-700 bg-blue-50 px-2 py-0.5 rounded border border-blue-200">
+                          {item.kategori}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Middle: Stock Details & Info Box */}
+                  <div className="bg-slate-50 border border-slate-100 rounded-xl p-3 space-y-2 text-xs">
+                    <div className="flex items-center justify-between">
+                      <span className="text-slate-500 font-medium text-[11px]">Kondisi Stok:</span>
+                      <div>{getStockStatusBadge(item)}</div>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-2 text-[11px] pt-1.5 border-t border-slate-200/60 text-slate-600">
+                      <div>
+                        <span className="text-slate-400 block text-[10px]">Supplier:</span>
+                        <span className="font-semibold text-slate-800 truncate block">{item.supplier || '-'}</span>
+                      </div>
+                      <div>
+                        <span className="text-slate-400 block text-[10px]">Lokasi Rak:</span>
+                        <span className="font-semibold text-slate-800 truncate block">{item.lokasiRak || '-'}</span>
+                      </div>
+                    </div>
+
+                    {equiv.isMultiUnit && (
+                      <div className="text-[10px] font-bold text-blue-700 bg-blue-50/80 px-2 py-1 rounded-lg border border-blue-200">
+                        🔄 Konversi: 1 {item.satuan} = {equiv.faktorKonversi} {equiv.baseSatuan} ({equiv.baseQty} {equiv.baseSatuan})
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Bottom: Action Buttons */}
+                  <div className="flex items-center justify-end gap-2 pt-1">
+                    <button
+                      onClick={() => handleOpenDetail(item)}
+                      className="flex-1 py-1.5 px-3 bg-blue-50 hover:bg-blue-100 text-blue-700 rounded-xl font-bold text-xs flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
+                    >
+                      <Eye className="w-3.5 h-3.5" /> Detail / QR
+                    </button>
+                    {!isReadOnly && (
+                      <>
+                        <button
+                          onClick={() => handleOpenEdit(item)}
+                          className="py-1.5 px-3 bg-amber-50 hover:bg-amber-100 text-amber-700 rounded-xl font-bold text-xs flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
+                          title="Edit"
+                        >
+                          <Edit2 className="w-3.5 h-3.5" /> Edit
+                        </button>
+                        <button
+                          onClick={() => handleOpenDelete(item)}
+                          className="py-1.5 px-3 bg-red-50 hover:bg-red-100 text-red-700 rounded-xl font-bold text-xs flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
+                          title="Hapus"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" /> Hapus
+                        </button>
+                      </>
+                    )}
+                  </div>
+                </div>
+              );
+            })
+          )}
         </div>
 
         {/* Pagination Bar */}

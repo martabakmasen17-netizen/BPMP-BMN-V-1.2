@@ -225,8 +225,10 @@ export default function TransaksiKeluarView({
       ? `[DATA SUSULAN] ${susulanNoDokumenManual ? `(No. Dok: ${susulanNoDokumenManual}) ` : ''}${catatan}`.trim()
       : catatan;
 
-    cart.forEach(item => {
+    cart.forEach((item, index) => {
+      const dateStr = transactionTimestamp.slice(2,10).replace(/-/g, '');
       onProcessTransaksi({
+        
         barangId: item.barangId,
         namaBarang: item.namaBarang,
         jumlah: item.jumlah,
@@ -1384,7 +1386,8 @@ export default function TransaksiKeluarView({
             </div>
           </div>
 
-          <div className="overflow-x-auto">
+          {/* DESKTOP / TABLET TABLE VIEW (Visible on >= 640px) */}
+          <div className="hidden sm:block overflow-x-auto">
             <table className="w-full text-left border-collapse text-xs">
               <thead>
                 <tr className="bg-slate-100/70 border-b border-gray-200 text-gray-600 font-bold uppercase tracking-wider text-[10px]">
@@ -1500,6 +1503,123 @@ export default function TransaksiKeluarView({
                 )}
               </tbody>
             </table>
+          </div>
+
+          {/* MOBILE CARD VIEW (Visible on < 640px) */}
+          <div className="block sm:hidden divide-y divide-gray-100">
+            {filteredFinalizedRequests.length === 0 ? (
+              <div className="p-10 text-center text-gray-400">
+                <Package className="w-10 h-10 mx-auto text-gray-300 mb-2" />
+                Belum ada transaksi barang keluar yang selesai / cocok dengan filter.
+              </div>
+            ) : (
+              filteredFinalizedRequests.map((t, idx) => (
+                <div
+                  key={`mobile_out_${t.id}_${idx}`}
+                  className={`p-4 space-y-3 transition-colors ${
+                    selectedIds.includes(t.id) ? 'bg-red-50/50' : 'bg-white hover:bg-slate-50/60'
+                  }`}
+                >
+                  {/* Top Bar: Checkbox + ID + Volume Badge */}
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-2">
+                      {isAdmin && (
+                        <input
+                          type="checkbox"
+                          checked={selectedIds.includes(t.id)}
+                          onChange={() => handleToggleSelectRow(t.id)}
+                          className="rounded border-gray-300 text-red-600 focus:ring-red-500 w-4 h-4 cursor-pointer"
+                        />
+                      )}
+                      <div className="flex items-center gap-1">
+                        <span className="font-mono font-bold text-gray-900 text-xs">{t.id}</span>
+                        <button
+                          onClick={() => copyToClipboard(t.id)}
+                          className="text-gray-400 hover:text-gray-600 p-0.5 cursor-pointer"
+                          title="Salin Kode ID"
+                        >
+                          {copiedId === t.id ? (
+                            <Check className="w-3 h-3 text-emerald-600" />
+                          ) : (
+                            <Copy className="w-3 h-3" />
+                          )}
+                        </button>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-1.5">
+                      <span className="inline-flex items-center px-2.5 py-1 bg-red-50 border border-red-200 text-red-700 font-bold rounded-lg text-xs font-mono">
+                        -{t.jumlah} Unit
+                      </span>
+                      <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                        t.statusPersetujuan === 'Disetujui'
+                          ? 'bg-emerald-100 text-emerald-800 border border-emerald-200' 
+                          : 'bg-red-100 text-red-800 border border-red-200'
+                      }`}>
+                        {t.statusPersetujuan === 'Disetujui' ? 'Disetujui' : 'Ditolak'}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Item Name & ID */}
+                  <div>
+                    <h4 className="font-bold text-gray-900 text-sm">{t.namaBarang}</h4>
+                    <span className="text-[10px] text-gray-400 font-mono">ID Barang: {t.barangId}</span>
+                  </div>
+
+                  {/* Metadata Grid */}
+                  <div className="bg-slate-50 border border-slate-100 rounded-xl p-3 space-y-2 text-xs">
+                    <div className="grid grid-cols-2 gap-2 text-[11px] text-gray-600">
+                      <div>
+                        <span className="text-gray-400 block text-[10px]">Waktu Transaksi:</span>
+                        <span className="font-medium text-gray-800">
+                          {new Date(t.tanggal).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' })} • {new Date(t.tanggal).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })} WIB
+                        </span>
+                      </div>
+                      <div>
+                        <span className="text-gray-400 block text-[10px]">Unit Penerima:</span>
+                        <span className="font-bold text-gray-900 truncate block">{t.unitId}</span>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-2 text-[11px] text-gray-600 pt-1.5 border-t border-slate-200/60">
+                      <div>
+                        <span className="text-gray-400 block text-[10px]">Petugas BMN:</span>
+                        <span className="font-semibold text-gray-800 truncate block">{t.petugas}</span>
+                      </div>
+                      <div>
+                        <span className="text-gray-400 block text-[10px]">Tipe Pencatatan:</span>
+                        {t.isSusulan ? (
+                          <span className="inline-flex items-center gap-1 px-1.5 py-0.5 bg-amber-100 text-amber-800 rounded text-[10px] font-bold">
+                            <Clock className="w-2.5 h-2.5 text-amber-700" /> Susulan
+                          </span>
+                        ) : (
+                          <span className="text-blue-700 font-semibold text-[10px]">🟢 Real-Time</span>
+                        )}
+                      </div>
+                    </div>
+
+                    {t.keperluan && (
+                      <div className="pt-1.5 border-t border-slate-200/60 text-[11px]">
+                        <span className="text-gray-400 block text-[10px]">Keperluan / Peruntukan:</span>
+                        <p className="text-gray-800 font-medium">
+                          "{t.keperluan}"
+                        </p>
+                      </div>
+                    )}
+
+                    {t.keteranganSusulan && (
+                      <div className="pt-1.5 border-t border-slate-200/60 text-[11px]">
+                        <span className="text-amber-700 block text-[10px] font-bold">Alasan Susulan:</span>
+                        <p className="text-amber-900 italic">
+                          "{t.keteranganSusulan}"
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              ))
+            )}
           </div>
         </div>
       )}

@@ -707,7 +707,10 @@ const handler = setTimeout(async () => {
     const dateStr = !isNaN(dateObj.getTime()) 
       ? dateObj.toISOString().slice(2, 10).replace(/-/g, '') 
       : new Date().toISOString().slice(2, 10).replace(/-/g, '');
-    const newId = trans.id || `TRM-${dateStr}-${String(barangMasukList.length + 1).padStart(2, '0')}`;
+    
+    // Ensure uniqueness for fallback ID by appending random chars
+    const fallbackId = `TRM-${dateStr}-${String(barangMasukList.length + 1).padStart(2, '0')}-${Math.random().toString(36).substring(2, 6).toUpperCase()}`;
+    const newId = trans.id || fallbackId;
 
     const newTrans: BarangMasuk = {
       ...trans,
@@ -806,7 +809,10 @@ const handler = setTimeout(async () => {
     const dateStr = !isNaN(dateObj.getTime()) 
       ? dateObj.toISOString().slice(2, 10).replace(/-/g, '') 
       : new Date().toISOString().slice(2, 10).replace(/-/g, '');
-    const newId = trans.id || `TRK-${dateStr}-${String(barangKeluarList.length + 1).padStart(2, '0')}`;
+      
+    // Ensure uniqueness for fallback ID by appending random chars
+    const fallbackId = `TRK-${dateStr}-${String(barangKeluarList.length + 1).padStart(2, '0')}-${Math.random().toString(36).substring(2, 6).toUpperCase()}`;
+    const newId = trans.id || fallbackId;
 
     const newTrans: BarangKeluar = {
       ...trans,
@@ -1486,9 +1492,21 @@ const handler = setTimeout(async () => {
                       setAccounts(prev => prev.filter(acc => acc.username !== username));
                       writeAuditLog('Hapus Akun', `Menghapus pendaftaran akun pegawai: ${username}`);
                     }}
+                    onUpdateAccount={(username, updatedAccount) => {
+                      setAccounts(prev => prev.map(acc => acc.username === username ? { ...acc, ...updatedAccount } : acc));
+                      writeAuditLog('Ubah Akun', `Memperbarui data akun pegawai: ${username}`);
+                    }}
                     onUpdatePassword={(username, newPassword) => {
                       setAccounts(prev => prev.map(acc => acc.username === username ? { ...acc, password: newPassword } : acc));
                       writeAuditLog('Ubah Sandi', `Mengubah kata sandi untuk pegawai: ${username}`);
+                    }}
+                    onMigrateBackup={() => {
+                      setBarangMasukList([]);
+                      setBarangKeluarList([]);
+                      setRiwayatList([]);
+                      setAuditLogsList([]);
+                      setNotificationsList([]);
+                      writeAuditLog('Migrasi Database', 'Telah melakukan backup & migrasi spreadsheet, membersihkan transaksi, riwayat, dan notifikasi.');
                     }}
                   />
                 ) : (

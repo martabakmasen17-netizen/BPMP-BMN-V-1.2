@@ -685,11 +685,11 @@ export default function RiwayatView({ riwayat, barang = [], settings, currentUse
       </div>
 
       {/* Timeline List */}
-      <div className="bg-white border border-gray-200 rounded-2xl shadow-sm p-5 space-y-4">
-        <div className="flex items-center justify-between border-b border-gray-100 pb-3">
+      <div className="bg-white border border-gray-200 rounded-2xl shadow-sm p-3.5 sm:p-5 space-y-4">
+        <div className="flex flex-wrap items-center justify-between gap-2 border-b border-gray-100 pb-3">
           <div className="flex items-center gap-2">
             <History className="w-4.5 h-4.5 text-blue-600" />
-            <h3 className="font-bold text-gray-900 text-sm">Garis Waktu Mutasi Persediaan BMN</h3>
+            <h3 className="font-bold text-gray-900 text-xs sm:text-sm">Garis Waktu Mutasi Persediaan BMN</h3>
           </div>
 
           {isAdmin && filteredRiwayat.length > 0 && (
@@ -705,9 +705,9 @@ export default function RiwayatView({ riwayat, barang = [], settings, currentUse
           )}
         </div>
 
-        <div className="relative border-l-2 border-gray-100 pl-4 space-y-6 ml-3 py-2">
+        <div className="relative border-l-2 border-gray-100 pl-3 sm:pl-4 space-y-4 sm:space-y-6 ml-2 sm:ml-3 py-2">
           {filteredRiwayat.length === 0 ? (
-            <div className="text-center text-xs text-gray-400 py-6 -ml-4">
+            <div className="text-center text-xs text-gray-400 py-6 -ml-3 sm:-ml-4">
               Tidak ada catatan riwayat mutasi ditemukan.
             </div>
           ) : (
@@ -723,22 +723,22 @@ export default function RiwayatView({ riwayat, barang = [], settings, currentUse
                 )}
                 <div className="relative flex-1">
                   {/* Dot marker */}
-                  <span className={`absolute -left-[25px] top-1 w-4 h-4 rounded-full border-2 border-white flex items-center justify-center ${
+                  <span className={`absolute -left-[19px] sm:-left-[25px] top-1.5 w-3.5 h-3.5 sm:w-4 sm:h-4 rounded-full border-2 border-white flex items-center justify-center ${
                     r.tipe === 'Masuk' ? 'bg-green-500' : 'bg-red-500'
                   }`}>
-                    {r.tipe === 'Masuk' ? <ArrowDownLeft className="w-2.5 h-2.5 text-white" /> : <ArrowUpRight className="w-2.5 h-2.5 text-white" />}
+                    {r.tipe === 'Masuk' ? <ArrowDownLeft className="w-2 h-2 text-white" /> : <ArrowUpRight className="w-2 h-2 text-white" />}
                   </span>
 
                   {/* Timeline Content */}
-                  <div className={`transition-colors border p-3.5 rounded-xl text-xs space-y-2 ${
+                  <div className={`transition-colors border p-3 sm:p-3.5 rounded-xl text-xs space-y-2 ${
                     selectedIds.includes(r.id) ? 'bg-blue-50/70 border-blue-300' : 'bg-slate-50 hover:bg-slate-100/60 border-gray-100'
                   }`}>
                     <div className="flex flex-wrap justify-between items-start gap-1.5">
                       <div>
-                        <span className="font-mono bg-white border border-gray-200 px-1.5 py-0.5 rounded text-[10px] font-bold text-gray-600 mr-2">
+                        <span className="font-mono bg-white border border-gray-200 px-1.5 py-0.5 rounded text-[10px] font-bold text-gray-600 mr-1.5">
                           {r.id}
                         </span>
-                        <span className="font-semibold text-gray-500">
+                        <span className="font-semibold text-gray-500 text-[11px]">
                           {new Date(r.tanggal).toLocaleDateString('id-ID')} • {new Date(r.tanggal).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })}
                         </span>
                       </div>
@@ -749,9 +749,9 @@ export default function RiwayatView({ riwayat, barang = [], settings, currentUse
                       </span>
                     </div>
 
-                    <h4 className="font-bold text-gray-900 text-sm">{r.namaBarang}</h4>
+                    <h4 className="font-bold text-gray-900 text-xs sm:text-sm">{r.namaBarang}</h4>
 
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-[11px] text-gray-500 border-t border-gray-100 pt-2 font-medium">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5 sm:gap-2 text-[11px] text-gray-500 border-t border-gray-100 pt-2 font-medium">
                       <div>
                         <span className="text-gray-400">Kode Barang: </span>
                         <span className="text-gray-700 font-bold">{r.barangId}</span>
@@ -762,7 +762,7 @@ export default function RiwayatView({ riwayat, barang = [], settings, currentUse
                       </div>
                       <div className="sm:col-span-2">
                         <span className="text-gray-400">Keterangan: </span>
-                        <span className="text-gray-700">{r.keterangan}</span>
+                        <span className="text-gray-700">{r.keterangan || '-'}</span>
                       </div>
                     </div>
                   </div>

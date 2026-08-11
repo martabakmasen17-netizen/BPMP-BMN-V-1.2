@@ -217,7 +217,8 @@ export default function AuditLogView({ logs, onClearLogs, onDeleteLogs, currentU
           </span>
         </div>
 
-        <div className="overflow-x-auto">
+        {/* DESKTOP / TABLET TABLE VIEW (Visible on >= 640px) */}
+        <div className="hidden sm:block overflow-x-auto">
           <table className="w-full text-left border-collapse text-xs">
             <thead>
               <tr className="bg-slate-50/50 border-b border-gray-100 text-gray-500 font-bold uppercase tracking-wider text-[10px]">
@@ -278,6 +279,62 @@ export default function AuditLogView({ logs, onClearLogs, onDeleteLogs, currentU
               )}
             </tbody>
           </table>
+        </div>
+
+        {/* MOBILE CARD VIEW (Visible on < 640px) */}
+        <div className="block sm:hidden divide-y divide-gray-100">
+          {filteredLogs.length === 0 ? (
+            <div className="p-10 text-center text-gray-400 text-xs font-medium">
+              Tidak ada catatan aktivitas terekam.
+            </div>
+          ) : (
+            filteredLogs.map((log, idx) => (
+              <div
+                key={`mobile_log_${log.id}_${idx}`}
+                className={`p-4 space-y-2.5 transition-colors ${
+                  selectedIds.includes(log.id) ? 'bg-blue-50/50' : 'bg-white hover:bg-slate-50/60'
+                }`}
+              >
+                {/* Header: Checkbox + Timestamp + Role */}
+                <div className="flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-2">
+                    {isAdmin && (
+                      <input
+                        type="checkbox"
+                        checked={selectedIds.includes(log.id)}
+                        onChange={() => handleToggleSelectRow(log.id)}
+                        className="rounded border-gray-300 text-blue-600 focus:ring-blue-500 w-4 h-4 cursor-pointer"
+                      />
+                    )}
+                    <span className="font-mono text-[11px] text-gray-500 font-medium">
+                      {new Date(log.tanggal).toLocaleDateString('id-ID')} • {new Date(log.tanggal).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', second: '2-digit' })} WIB
+                    </span>
+                  </div>
+
+                  <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
+                    log.role.includes('Admin') ? 'bg-blue-100 text-blue-700' :
+                    log.role.includes('Subbagian') ? 'bg-amber-100 text-amber-700' :
+                    log.role.includes('Petugas') ? 'bg-green-100 text-green-700' : 'bg-slate-100 text-slate-700'
+                  }`}>
+                    {log.role}
+                  </span>
+                </div>
+
+                {/* Actor & Action */}
+                <div className="flex items-center justify-between gap-2">
+                  <span className="font-bold text-gray-900 text-xs">{log.aktor}</span>
+                  <span className="px-2 py-0.5 bg-slate-100 text-slate-800 font-bold rounded text-[10px] uppercase tracking-wider">
+                    {log.aksi}
+                  </span>
+                </div>
+
+                {/* Detail Box */}
+                <div className="bg-slate-50 border border-slate-100 rounded-xl p-2.5 text-xs text-gray-600 leading-relaxed break-words">
+                  {log.detail}
+                </div>
+              </div>
+            ))
+          )}
         </div>
       </div>
 

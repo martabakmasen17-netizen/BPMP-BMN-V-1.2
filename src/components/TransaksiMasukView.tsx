@@ -235,9 +235,11 @@ export default function TransaksiMasukView({
       ? `[DATA SUSULAN] ${susulanNoDokumenManual ? `(No. Dok: ${susulanNoDokumenManual}) ` : ''}${catatan}`.trim()
       : catatan;
 
-    cart.forEach(item => {
+    cart.forEach((item, index) => {
+      const dateStr = transactionTimestamp.slice(2,10).replace(/-/g, '');
       onProcessTransaksi(
         {
+          
           barangId: item.barangId,
           namaBarang: item.namaBarang,
           jumlah: item.jumlah,
@@ -1457,7 +1459,8 @@ export default function TransaksiMasukView({
             </div>
           </div>
 
-          <div className="overflow-x-auto">
+          {/* DESKTOP / TABLET TABLE VIEW (Visible on >= 640px) */}
+          <div className="hidden sm:block overflow-x-auto">
             <table className="w-full text-left border-collapse text-xs">
               <thead>
                 <tr className="bg-slate-100/70 border-b border-gray-200 text-gray-600 font-bold uppercase tracking-wider text-[10px]">
@@ -1576,6 +1579,122 @@ export default function TransaksiMasukView({
                 )}
               </tbody>
             </table>
+          </div>
+
+          {/* MOBILE CARD VIEW (Visible on < 640px) */}
+          <div className="block sm:hidden divide-y divide-gray-100">
+            {filteredTransaksiList.length === 0 ? (
+              <div className="p-10 text-center text-gray-400">
+                <Package className="w-10 h-10 mx-auto text-gray-300 mb-2" />
+                Belum ada transaksi barang masuk yang tercatat / cocok dengan filter.
+              </div>
+            ) : (
+              filteredTransaksiList.map((t, idx) => (
+                <div
+                  key={`mobile_in_${t.id}_${idx}`}
+                  className={`p-4 space-y-3 transition-colors ${
+                    selectedIds.includes(t.id) ? 'bg-emerald-50/50' : 'bg-white hover:bg-slate-50/60'
+                  }`}
+                >
+                  {/* Top Bar: Checkbox + ID + Volume Badge */}
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-2">
+                      {isAdmin && (
+                        <input
+                          type="checkbox"
+                          checked={selectedIds.includes(t.id)}
+                          onChange={() => handleToggleSelectRow(t.id)}
+                          className="rounded border-gray-300 text-emerald-600 focus:ring-emerald-500 w-4 h-4 cursor-pointer"
+                        />
+                      )}
+                      <div className="flex items-center gap-1">
+                        <span className="font-mono font-bold text-gray-900 text-xs">{t.id}</span>
+                        <button
+                          onClick={() => copyToClipboard(t.id)}
+                          className="text-gray-400 hover:text-gray-600 p-0.5 cursor-pointer"
+                          title="Salin Kode ID"
+                        >
+                          {copiedId === t.id ? (
+                            <Check className="w-3 h-3 text-emerald-600" />
+                          ) : (
+                            <Copy className="w-3 h-3" />
+                          )}
+                        </button>
+                      </div>
+                    </div>
+
+                    <span className="inline-flex items-center px-2.5 py-1 bg-emerald-50 border border-emerald-200 text-emerald-700 font-bold rounded-lg text-xs font-mono">
+                      +{t.jumlah} Unit
+                    </span>
+                  </div>
+
+                  {/* Item Name & ID */}
+                  <div>
+                    <h4 className="font-bold text-gray-900 text-sm">{t.namaBarang}</h4>
+                    <span className="text-[10px] text-gray-400 font-mono">ID Barang: {t.barangId}</span>
+                  </div>
+
+                  {/* Metadata Grid */}
+                  <div className="bg-slate-50 border border-slate-100 rounded-xl p-3 space-y-2 text-xs">
+                    <div className="grid grid-cols-2 gap-2 text-[11px] text-gray-600">
+                      <div>
+                        <span className="text-gray-400 block text-[10px]">Waktu Transaksi:</span>
+                        <span className="font-medium text-gray-800">
+                          {new Date(t.tanggal).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' })} • {new Date(t.tanggal).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })} WIB
+                        </span>
+                      </div>
+                      <div>
+                        <span className="text-gray-400 block text-[10px]">Supplier:</span>
+                        <span className="font-semibold text-gray-800 truncate block">{t.supplier || '-'}</span>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-2 text-[11px] text-gray-600 pt-1.5 border-t border-slate-200/60">
+                      <div>
+                        <span className="text-gray-400 block text-[10px]">Petugas Penerima:</span>
+                        <span className="font-semibold text-gray-800 truncate block">{t.petugas}</span>
+                      </div>
+                      <div>
+                        <span className="text-gray-400 block text-[10px]">Tipe Transaksi:</span>
+                        {t.isSusulan ? (
+                          <span className="inline-flex items-center gap-1 px-1.5 py-0.5 bg-amber-100 text-amber-800 rounded text-[10px] font-bold">
+                            <Clock className="w-2.5 h-2.5 text-amber-700" /> Susulan
+                          </span>
+                        ) : (
+                          <span className="text-emerald-700 font-semibold text-[10px]">🟢 Real-Time</span>
+                        )}
+                      </div>
+                    </div>
+
+                    {(t.keteranganSusulan || t.catatan) && (
+                      <div className="pt-1.5 border-t border-slate-200/60 text-[11px]">
+                        <span className="text-gray-400 block text-[10px]">Catatan / Alasan:</span>
+                        <p className="text-gray-700 italic">
+                          "{t.keteranganSusulan || t.catatan}"
+                        </p>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Document Attachment Button */}
+                  {t.fileData && (
+                    <div className="pt-1">
+                      <a
+                        href={t.fileData}
+                        download={t.fileDokumen || 'Dokumen_Persediaan.pdf'}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="w-full inline-flex items-center justify-center gap-2 py-2 px-3 bg-red-50 hover:bg-red-100 border border-red-200 rounded-xl text-xs text-red-700 font-bold transition-all cursor-pointer"
+                      >
+                        <FileText className="w-3.5 h-3.5 text-red-600" />
+                        <span className="truncate max-w-[200px]">{t.fileDokumen || 'Unduh Berkas Dokumen'}</span>
+                        <Download className="w-3 h-3 text-red-500 shrink-0" />
+                      </a>
+                    </div>
+                  )}
+                </div>
+              ))
+            )}
           </div>
         </div>
       )}
