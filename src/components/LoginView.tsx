@@ -5,9 +5,10 @@
 
 import React, { useState } from 'react';
 import { motion } from 'motion/react';
-import { Shield, Key, User, Phone, Briefcase, Mail, CheckCircle, ExternalLink, ArrowRight, BookOpen, Lock, Sparkles, Server } from 'lucide-react';
+import { Shield, Key, User, Phone, Briefcase, Mail, CheckCircle, ExternalLink, ArrowRight, BookOpen, Lock, Sparkles, Server, CheckCircle2 } from 'lucide-react';
 import { UserAccount } from '../types';
 import LogoImage from './LogoImage';
+import { JABATAN_PRESETS, getDefaultTugasByJabatan, isCustomTugasJabatan, getTugasBadgeClass } from '../utils/pegawaiConstants';
 
 interface LoginViewProps {
   accounts: UserAccount[];
@@ -27,7 +28,8 @@ export default function LoginView({ accounts, onLoginSuccess, onRegisterAccount,
   // Register Form States
   const [regNama, setRegNama] = useState('');
   const [regNip, setRegNip] = useState('');
-  const [regJabatan, setRegJabatan] = useState('Petugas BMN');
+  const [regJabatan, setRegJabatan] = useState('Pengolah Data dan Informasi');
+  const [regTugas, setRegTugas] = useState('PJ BMN');
   const [regTelepon, setRegTelepon] = useState('');
   const [regUsername, setRegUsername] = useState('');
   const [regPassword, setRegPassword] = useState('');
@@ -36,7 +38,16 @@ export default function LoginView({ accounts, onLoginSuccess, onRegisterAccount,
   const [showForgotPassword, setShowForgotPassword] = useState(false);
 
   // Successful Registration Info for WhatsApp Modal
-  const [registeredUser, setRegisteredUser] = useState<{ nama: string; nip: string } | null>(null);
+  const [registeredUser, setRegisteredUser] = useState<{ nama: string; nip: string; jabatan: string; tugas: string } | null>(null);
+
+  const handleRegJabatanChange = (newJabatan: string) => {
+    setRegJabatan(newJabatan);
+    if (isCustomTugasJabatan(newJabatan)) {
+      setRegTugas(prev => (prev && prev !== 'PJ BMN' && prev !== 'Anggota') ? prev : 'Petugas BMN & Pengembang Sistem SILAP');
+    } else {
+      setRegTugas(getDefaultTugasByJabatan(newJabatan));
+    }
+  };
 
   const handleLoginSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -91,6 +102,7 @@ export default function LoginView({ accounts, onLoginSuccess, onRegisterAccount,
       nama: regNama,
       nip: regNip,
       jabatan: regJabatan,
+      tugas: regTugas || getDefaultTugasByJabatan(regJabatan),
       telepon: regTelepon,
       password: regPassword,
       role: 'Petugas BMN', // Default registered role is BMN officer
@@ -99,12 +111,18 @@ export default function LoginView({ accounts, onLoginSuccess, onRegisterAccount,
     });
 
     // Set info to show in the success modal
-    setRegisteredUser({ nama: regNama, nip: regNip });
+    setRegisteredUser({ 
+      nama: regNama, 
+      nip: regNip,
+      jabatan: regJabatan,
+      tugas: regTugas || getDefaultTugasByJabatan(regJabatan)
+    });
 
     // Reset register form fields
     setRegNama('');
     setRegNip('');
-    setRegJabatan('Petugas BMN');
+    setRegJabatan('Pengolah Data dan Informasi');
+    setRegTugas('PJ BMN');
     setRegTelepon('');
     setRegUsername('');
     setRegPassword('');
@@ -120,7 +138,9 @@ export default function LoginView({ accounts, onLoginSuccess, onRegisterAccount,
     const text = encodeURIComponent(
       `Halo Admin BMN, saya telah mendaftar akun baru Petugas BMN di sistem inventaris.\n\n` +
       `• Nama: ${registeredUser.nama}\n` +
-      `• NIP: ${registeredUser.nip}\n\n` +
+      `• NIP: ${registeredUser.nip}\n` +
+      `• Jabatan: ${registeredUser.jabatan}\n` +
+      `• Tugas & Tanggung Jawab: ${registeredUser.tugas}\n\n` +
       `Mohon bantuannya untuk melakukan konfirmasi & aktivasi akun saya agar dapat login. Terima kasih!`
     );
     window.open(`https://wa.me/628981741680?text=${text}`, '_blank');
@@ -290,6 +310,7 @@ export default function LoginView({ accounts, onLoginSuccess, onRegisterAccount,
                 Pendaftaran ini dikhususkan bagi <strong>Pegawai Petugas BMN</strong>. Akun yang baru dibuat akan berstatus <span className="text-amber-400 font-bold">Pending</span> dan perlu disetujui Admin.
               </p>
 
+              {/* Form Grid 1: Nama & NIP */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div className="space-y-1">
                   <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider">Nama Lengkap *</label>
@@ -300,10 +321,10 @@ export default function LoginView({ accounts, onLoginSuccess, onRegisterAccount,
                     <input
                       type="text"
                       required
-                      placeholder="Nama Lengkap"
+                      placeholder="Nama Lengkap & Gelar"
                       value={regNama}
                       onChange={e => setRegNama(e.target.value)}
-                      className="w-full pl-8 pr-2.5 py-1.5 bg-slate-950/60 border border-slate-800 rounded-xl text-white text-[11px] focus:ring-2 focus:ring-blue-500 focus:outline-none transition-all placeholder-slate-600"
+                      className="w-full pl-8 pr-2.5 py-1.5 bg-slate-950/60 border border-slate-800 rounded-xl text-white text-[11px] focus:ring-2 focus:ring-blue-500 focus:outline-none transition-all placeholder-slate-600 font-medium"
                     />
                   </div>
                 </div>
@@ -317,49 +338,90 @@ export default function LoginView({ accounts, onLoginSuccess, onRegisterAccount,
                     <input
                       type="text"
                       required
-                      placeholder="NIP Pegawai"
+                      placeholder="18 digit atau '-' jika Magang"
                       value={regNip}
                       onChange={e => setRegNip(e.target.value)}
-                      className="w-full pl-8 pr-2.5 py-1.5 bg-slate-950/60 border border-slate-800 rounded-xl text-white text-[11px] focus:ring-2 focus:ring-blue-500 focus:outline-none transition-all placeholder-slate-600"
+                      className="w-full pl-8 pr-2.5 py-1.5 bg-slate-950/60 border border-slate-800 rounded-xl text-white text-[11px] focus:ring-2 focus:ring-blue-500 focus:outline-none transition-all placeholder-slate-600 font-mono"
                     />
                   </div>
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              {/* Form Grid 2: Kolom Kiri (Jabatan) & Kolom Kanan (Tugas dan Tanggung Jawab) */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 p-3 bg-slate-950/70 rounded-2xl border border-slate-800">
+                {/* Kolom Kiri: Jabatan */}
                 <div className="space-y-1">
-                  <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider">Jabatan / Peran *</label>
+                  <div className="flex items-center justify-between">
+                    <label className="block text-[10px] font-extrabold text-blue-400 uppercase tracking-wider">
+                      Jabatan (Kolom Kiri) *
+                    </label>
+                  </div>
                   <div className="relative">
                     <span className="absolute left-3 top-2 text-slate-500">
                       <Briefcase className="w-3.5 h-3.5" />
                     </span>
                     <select
                       value={regJabatan}
-                      onChange={e => setRegJabatan(e.target.value)}
-                      className="w-full pl-8 pr-2.5 py-1.5 bg-slate-950/60 border border-slate-800 rounded-xl text-white text-[11px] focus:ring-2 focus:ring-blue-500 focus:outline-none transition-all"
+                      onChange={e => handleRegJabatanChange(e.target.value)}
+                      className="w-full pl-8 pr-2.5 py-1.5 bg-slate-900 border border-slate-700 rounded-xl text-white text-[11px] font-bold focus:ring-2 focus:ring-blue-500 focus:outline-none transition-all cursor-pointer"
                     >
-                      <option value="Petugas BMN">Petugas BMN</option>
-                      <option value="Verifikator BMN">Verifikator BMN</option>
-                      <option value="Pegawai BMN">Pegawai BMN</option>
+                      {JABATAN_PRESETS.map((jp, i) => (
+                        <option key={i} value={jp.jabatan}>
+                          {jp.jabatan}
+                        </option>
+                      ))}
                     </select>
                   </div>
                 </div>
 
+                {/* Kolom Kanan: Tugas & Tanggung Jawab */}
                 <div className="space-y-1">
-                  <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider">No Telepon / WA *</label>
+                  <div className="flex items-center justify-between">
+                    <label className="block text-[10px] font-extrabold text-indigo-400 uppercase tracking-wider">
+                      Tugas & Tanggung Jawab *
+                    </label>
+                    {isCustomTugasJabatan(regJabatan) ? (
+                      <span className="text-[9px] bg-indigo-500/20 text-indigo-300 font-bold px-1.5 py-0.2 rounded">
+                        Bisa Diisi Sendiri
+                      </span>
+                    ) : (
+                      <span className="text-[9px] text-emerald-400 font-bold flex items-center gap-0.5">
+                        <CheckCircle2 className="w-2.5 h-2.5" /> Terisi
+                      </span>
+                    )}
+                  </div>
                   <div className="relative">
-                    <span className="absolute left-3 top-2 text-slate-500">
-                      <Phone className="w-3.5 h-3.5" />
-                    </span>
                     <input
                       type="text"
                       required
-                      placeholder="Contoh: 0812-xxx"
-                      value={regTelepon}
-                      onChange={e => setRegTelepon(e.target.value)}
-                      className="w-full pl-8 pr-2.5 py-1.5 bg-slate-950/60 border border-slate-800 rounded-xl text-white text-[11px] focus:ring-2 focus:ring-blue-500 focus:outline-none transition-all placeholder-slate-600"
+                      placeholder={isCustomTugasJabatan(regJabatan) ? "Ketik tugas magang..." : "Tugas dan Tanggung Jawab"}
+                      value={regTugas}
+                      onChange={e => setRegTugas(e.target.value)}
+                      className={`w-full px-3 py-1.5 rounded-xl text-[11px] font-bold focus:ring-2 focus:outline-none transition-all ${
+                        isCustomTugasJabatan(regJabatan)
+                          ? 'bg-indigo-950/60 border border-indigo-500/50 text-indigo-200 focus:ring-indigo-400'
+                          : 'bg-slate-900 border border-slate-700 text-slate-200 focus:ring-blue-500'
+                      }`}
                     />
                   </div>
+                </div>
+              </div>
+
+              {/* Form Grid 3: Telepon */}
+              <div className="space-y-1">
+                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider">No Telepon / WhatsApp *</label>
+                <div className="relative">
+                  <span className="absolute left-3 top-2 text-slate-500">
+                    <Phone className="w-3.5 h-3.5" />
+                  </span>
+                  <input
+                    type="text"
+                    required
+                    placeholder="Contoh: 0812-xxxx-xxxx"
+                    value={regTelepon}
+                    onChange={e => setRegTelepon(e.target.value)}
+                    className="w-full pl-8 pr-2.5 py-1.5 bg-slate-950/60 border border-slate-800 rounded-xl text-white text-[11px] focus:ring-2 focus:ring-blue-500 focus:outline-none transition-all placeholder-slate-600 font-mono"
+                  />
                 </div>
               </div>
 

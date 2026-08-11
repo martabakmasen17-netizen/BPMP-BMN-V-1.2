@@ -180,16 +180,19 @@ export interface Settings {
 export interface Pegawai {
   id: string;
   nama: string;
-  jabatan: string;
+  jabatan: string; // Kolom Kiri: Jabatan Struktural / Fungsional
+  tugas?: string; // Kolom Kanan: Tugas dan Tanggung Jawab (PJ BMN, Anggota, atau bebas diisi untuk Magang/KP)
   nip?: string;
   telepon?: string;
+  unitKerja?: string;
 }
 
 export interface UserAccount {
   username: string;
   nama: string;
   nip: string;
-  jabatan: string;
+  jabatan: string; // Kolom Kiri: Jabatan
+  tugas?: string; // Kolom Kanan: Tugas dan Tanggung Jawab
   telepon: string;
   password?: string;
   role: 'Administrator' | 'Petugas BMN';

@@ -22,6 +22,7 @@ import {
   Key
 } from 'lucide-react';
 import { UserAccount, Barang, Riwayat } from '../types';
+import { getDefaultTugasByJabatan, getTugasBadgeClass } from '../utils/pegawaiConstants';
 
 interface AdminControlViewProps {
   accounts: UserAccount[];
@@ -139,9 +140,11 @@ export default function AdminControlView({
                     const usernameStr = String(acc?.username || `pending-${idx}`);
                     const namaStr = String(acc?.nama || 'Tanpa Nama');
                     const jabatanStr = String(acc?.jabatan || '-');
+                    const tugasStr = String(acc?.tugas || getDefaultTugasByJabatan(jabatanStr));
                     const nipStr = String(acc?.nip || '-');
                     const teleponStr = String(acc?.telepon || '-');
                     const regAtStr = String(acc?.registeredAt || '');
+                    const badgeStyle = getTugasBadgeClass(tugasStr);
 
                     return (
                       <div key={usernameStr} className="bg-amber-50/40 border border-amber-200 rounded-xl p-4 flex flex-col justify-between shadow-xs">
@@ -155,7 +158,15 @@ export default function AdminControlView({
 
                           <div className="space-y-1">
                             <h4 className="font-bold text-gray-900 text-sm">{namaStr}</h4>
-                            <p className="text-gray-500 font-semibold">{jabatanStr}</p>
+                            <div className="flex items-center gap-2 flex-wrap pt-0.5">
+                              <span className="text-xs font-bold text-slate-800 bg-white px-2 py-0.5 rounded border border-slate-200">
+                                {jabatanStr}
+                              </span>
+                              <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-bold border ${badgeStyle.badge}`}>
+                                <span className={`w-1.5 h-1.5 rounded-full ${badgeStyle.dot}`}></span>
+                                {tugasStr}
+                              </span>
+                            </div>
                           </div>
 
                           {/* Detailed information filled by creator */}
@@ -182,13 +193,13 @@ export default function AdminControlView({
                         <div className="flex gap-2 mt-4 pt-3 border-t border-gray-100">
                           <button
                             onClick={() => onApproveAccount(usernameStr)}
-                            className="flex-1 py-1.5 bg-green-600 hover:bg-green-700 text-white rounded-lg font-bold cursor-pointer flex items-center justify-center gap-1 transition-all"
+                            className="flex-1 py-1.5 bg-green-600 hover:bg-green-700 text-white rounded-lg font-bold cursor-pointer flex items-center justify-center gap-1 transition-all text-xs"
                           >
                             <Check className="w-3.5 h-3.5" /> Setujui Akun
                           </button>
                           <button
                             onClick={() => onRejectAccount(usernameStr)}
-                            className="flex-1 py-1.5 bg-red-100 hover:bg-red-200 text-red-700 rounded-lg font-bold cursor-pointer flex items-center justify-center gap-1 transition-all"
+                            className="flex-1 py-1.5 bg-red-100 hover:bg-red-200 text-red-700 rounded-lg font-bold cursor-pointer flex items-center justify-center gap-1 transition-all text-xs"
                           >
                             <X className="w-3.5 h-3.5" /> Tolak Pendaftaran
                           </button>
@@ -215,7 +226,8 @@ export default function AdminControlView({
                     <thead>
                       <tr className="bg-slate-50 border-b border-gray-100 text-gray-400 font-bold uppercase text-[9px] tracking-wider">
                         <th className="p-3">Nama Lengkap / NIP</th>
-                        <th className="p-3">Jabatan</th>
+                        <th className="p-3">Jabatan (Kolom Kiri)</th>
+                        <th className="p-3">Tugas & Tanggung Jawab</th>
                         <th className="p-3">Username / Email</th>
                         <th className="p-3">Kata Sandi</th>
                         <th className="p-3">Telepon</th>
@@ -228,10 +240,12 @@ export default function AdminControlView({
                         const usernameStr = String(acc?.username || `user-${idx}`);
                         const namaStr = String(acc?.nama || 'Tanpa Nama');
                         const jabatanStr = String(acc?.jabatan || '-');
+                        const tugasStr = String(acc?.tugas || getDefaultTugasByJabatan(jabatanStr));
                         const nipStr = String(acc?.nip || '-');
                         const teleponStr = String(acc?.telepon || '-');
                         const passwordStr = String(acc?.password || '-');
                         const statusStr = String(acc?.status || '-');
+                        const badgeStyle = getTugasBadgeClass(tugasStr);
 
                         return (
                           <tr key={usernameStr} className="hover:bg-slate-50/50 transition-colors">
@@ -239,7 +253,13 @@ export default function AdminControlView({
                               <span className="font-bold text-gray-900 block">{namaStr}</span>
                               <span className="text-[10px] text-gray-400 block mt-0.5">NIP: {nipStr}</span>
                             </td>
-                            <td className="p-3 font-semibold text-gray-600">{jabatanStr}</td>
+                            <td className="p-3 font-bold text-gray-800">{jabatanStr}</td>
+                            <td className="p-3">
+                              <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-lg text-[11px] font-bold border ${badgeStyle.badge}`}>
+                                <span className={`w-1.5 h-1.5 rounded-full ${badgeStyle.dot}`}></span>
+                                {tugasStr}
+                              </span>
+                            </td>
                             <td className="p-3 font-mono text-gray-800">{usernameStr}</td>
                             <td className="p-3">
                               {editingPasswordUser === usernameStr ? (

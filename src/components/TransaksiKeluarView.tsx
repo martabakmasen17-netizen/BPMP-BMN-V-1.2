@@ -15,6 +15,15 @@ import QRScannerModal from './QRScannerModal';
 import ExportConfirmModal from './ExportConfirmModal';
 import BarangSearchPicker from './BarangSearchPicker';
 
+export interface CartItemKeluar {
+  cartId: string;
+  barangId: string;
+  namaBarang: string;
+  jumlah: number;
+  satuan: string;
+  stokSisa: number;
+}
+
 interface TransaksiKeluarViewProps {
   barangList: Barang[];
   kategoriList: Kategori[];
@@ -61,6 +70,9 @@ export default function TransaksiKeluarView({
   const isAdmin = currentUserRole === 'Administrator';
   const isReadOnly = currentUserRole === 'Viewer';
   const isApprover = currentUserRole === 'Kepala Subbagian' || currentUserRole === 'Administrator';
+
+  // Cart State
+  const [cart, setCart] = useState<CartItemKeluar[]>([]);
 
   // Form Fields
   const [selectedBarangId, setSelectedBarangId] = useState<string>(() => {
@@ -133,13 +145,48 @@ export default function TransaksiKeluarView({
     }
   };
 
+  const handleAddToCart = () => {
+    if (!selectedBarangId || jumlah <= 0) return;
+    if (selectedItem && jumlah > selectedItem.stokSekarang) {
+      setValidationError(`Stok tidak mencukupi! Tersedia hanya ${selectedItem.stokSekarang} ${selectedItem.satuan}.`);
+      return;
+    }
+
+    const existingIndex = cart.findIndex(c => c.barangId === selectedBarangId);
+    if (existingIndex > -1) {
+      const updatedCart = [...cart];
+      const newJumlah = updatedCart[existingIndex].jumlah + jumlah;
+      if (selectedItem && newJumlah > selectedItem.stokSekarang) {
+        setValidationError(`Total jumlah di keranjang (${newJumlah}) melebihi stok yang tersedia (${selectedItem.stokSekarang}).`);
+        return;
+      }
+      updatedCart[existingIndex].jumlah = newJumlah;
+      updatedCart[existingIndex].stokSisa = (selectedItem?.stokSekarang || 0) - newJumlah;
+      setCart(updatedCart);
+    } else {
+      setCart([...cart, {
+        cartId: Math.random().toString(36).substr(2, 9),
+        barangId: selectedBarangId,
+        namaBarang: selectedItem?.nama || '',
+        jumlah,
+        satuan: selectedItem?.satuan || 'Pcs',
+        stokSisa: (selectedItem?.stokSekarang || 0) - jumlah
+      }]);
+    }
+
+    setJumlah(1);
+    setValidationError('');
+  };
+
+  const handleRemoveFromCart = (cartId: string) => {
+    setCart(cart.filter(c => c.cartId !== cartId));
+  };
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (isReadOnly) return;
-    if (!selectedBarangId || jumlah <= 0) return;
-
-    if (selectedItem && jumlah > selectedItem.stokSekarang) {
-      setValidationError(`Stok tidak mencukupi! Tersedia hanya ${selectedItem.stokSekarang} ${selectedItem.satuan}.`);
+    if (cart.length === 0) {
+      setValidationError('Keranjang kosong! Silakan tambahkan item terlebih dahulu.');
       return;
     }
 
@@ -178,21 +225,24 @@ export default function TransaksiKeluarView({
       ? `[DATA SUSULAN] ${susulanNoDokumenManual ? `(No. Dok: ${susulanNoDokumenManual}) ` : ''}${catatan}`.trim()
       : catatan;
 
-    onProcessTransaksi({
-      barangId: selectedBarangId,
-      namaBarang: selectedItem?.nama || '',
-      jumlah,
-      unitId: selectedUnitId,
-      petugas,
-      keperluan,
-      catatan: payloadCatatan,
-      tanggal: transactionTimestamp,
-      isSusulan: isSusulanMode,
-      keteranganSusulan: isSusulanMode ? susulanAlasan : undefined,
-      waktuInputSistem: new Date().toISOString()
+    cart.forEach(item => {
+      onProcessTransaksi({
+        barangId: item.barangId,
+        namaBarang: item.namaBarang,
+        jumlah: item.jumlah,
+        unitId: selectedUnitId,
+        petugas,
+        keperluan,
+        catatan: payloadCatatan,
+        tanggal: transactionTimestamp,
+        isSusulan: isSusulanMode,
+        keteranganSusulan: isSusulanMode ? susulanAlasan : undefined,
+        waktuInputSistem: new Date().toISOString()
+      });
     });
 
     // Reset Form
+    setCart([]);
     setJumlah(1);
     setKeperluan('');
     setCatatan('');
@@ -410,18 +460,26 @@ export default function TransaksiKeluarView({
                   </>
                 )}
                 <div className="grid grid-cols-3 py-1 border-b border-gray-200">
-                  <span className="text-gray-500 font-semibold">Nama Item:</span>
-                  <span className="col-span-2 font-bold text-gray-900">{selectedItem.nama} ({selectedItem.id})</span>
+                  <span className="text-gray-500 font-semibold">Total Item:</span>
+                  <span className="col-span-2 font-bold text-gray-900">{cart.length} Jenis Barang</span>
                 </div>
-                <div className="grid grid-cols-3 py-1 border-b border-gray-200">
-                  <span className="text-gray-500 font-semibold">Volume Keluar:</span>
-                  <span className="col-span-2 font-bold text-red-600 text-sm">-{jumlah} {selectedItem.satuan}</span>
-                </div>
-                <div className="grid grid-cols-3 py-1 border-b border-gray-200">
-                  <span className="text-gray-500 font-semibold">Sisa Stok Nanti:</span>
-                  <span className="col-span-2 font-bold text-slate-800">
-                    {selectedItem.stokSekarang - jumlah} {selectedItem.satuan}
-                  </span>
+                <div className="border border-gray-200 rounded-lg overflow-hidden my-2">
+                  <table className="w-full text-[10px]">
+                    <thead className="bg-gray-100 text-gray-700">
+                      <tr>
+                        <th className="py-1.5 px-2 text-left font-bold">Barang</th>
+                        <th className="py-1.5 px-2 text-right font-bold">Volume</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-100">
+                      {cart.map((c) => (
+                        <tr key={c.cartId} className="bg-white">
+                          <td className="py-1.5 px-2 text-gray-900">{c.namaBarang}</td>
+                          <td className="py-1.5 px-2 text-right font-bold text-red-600">-{c.jumlah} {c.satuan}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
                 </div>
                 <div className="grid grid-cols-3 py-1 border-b border-gray-200">
                   <span className="text-gray-500 font-semibold">Unit Penerima:</span>
@@ -784,7 +842,47 @@ export default function TransaksiKeluarView({
                       <AlertCircle className="w-3.5 h-3.5" /> {validationError}
                     </p>
                   )}
+
+                  <div className="flex justify-end pt-2">
+                    <button
+                      type="button"
+                      onClick={handleAddToCart}
+                      className="px-4 py-2 bg-slate-800 hover:bg-slate-900 text-white rounded-lg text-xs font-bold shadow transition-colors flex items-center gap-2 cursor-pointer"
+                    >
+                      <PlusCircle className="w-4 h-4" /> Tambah ke Keranjang
+                    </button>
+                  </div>
                 </div>
+
+                {/* KERANJANG BELANJA / DAFTAR BARANG */}
+                {cart.length > 0 && (
+                  <div className="bg-red-50/50 p-4 rounded-xl border border-red-200 space-y-3">
+                    <h4 className="font-bold text-red-900 text-xs flex items-center gap-2">
+                      <Package className="w-4 h-4 text-red-700" /> Daftar Barang yang Akan Dikeluarkan ({cart.length} item)
+                    </h4>
+                    <div className="space-y-2">
+                      {cart.map((c) => (
+                        <div key={c.cartId} className="flex items-center justify-between bg-white p-3 rounded-lg border border-red-100 shadow-xs">
+                          <div>
+                            <p className="font-bold text-gray-900 text-[11px]">{c.namaBarang}</p>
+                            <p className="text-[10px] text-gray-500">ID: {c.barangId} • Sisa Stok: {c.stokSisa} {c.satuan}</p>
+                          </div>
+                          <div className="flex items-center gap-4">
+                            <span className="font-bold text-red-600 text-sm">-{c.jumlah} {c.satuan}</span>
+                            <button
+                              type="button"
+                              onClick={() => handleRemoveFromCart(c.cartId)}
+                              className="p-1.5 hover:bg-red-100 text-red-500 hover:text-red-700 rounded-md transition-colors cursor-pointer"
+                              title="Hapus dari daftar"
+                            >
+                              <X className="w-4 h-4" />
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
 
                 {/* 3. UNIT & PETUGAS */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -867,10 +965,10 @@ export default function TransaksiKeluarView({
 
                 <button
                   type="submit"
-                  disabled={!!validationError || !selectedBarangId}
+                  disabled={cart.length === 0}
                   className="w-full py-3 bg-red-600 hover:bg-red-700 disabled:opacity-50 text-white rounded-xl text-xs sm:text-sm font-bold shadow-md transition-all cursor-pointer text-center flex items-center justify-center gap-2"
                 >
-                  <ArrowUpRight className="w-4 h-4" /> Proses Distribusi Barang Keluar
+                  <ArrowUpRight className="w-4 h-4" /> Checkout & Proses Distribusi ({cart.length} Item)
                 </button>
               </form>
             )}
@@ -1146,12 +1244,52 @@ export default function TransaksiKeluarView({
                     />
                   </div>
 
+                  <div className="flex justify-end pt-2">
+                    <button
+                      type="button"
+                      onClick={handleAddToCart}
+                      className="px-4 py-2 bg-amber-800 hover:bg-amber-900 text-white rounded-lg text-xs font-bold shadow transition-colors flex items-center gap-2 cursor-pointer"
+                    >
+                      <PlusCircle className="w-4 h-4" /> Tambah ke Keranjang
+                    </button>
+                  </div>
+
+                  {/* KERANJANG BELANJA / DAFTAR BARANG */}
+                  {cart.length > 0 && (
+                    <div className="bg-amber-50/50 p-4 rounded-xl border border-amber-200 space-y-3">
+                      <h4 className="font-bold text-amber-900 text-xs flex items-center gap-2">
+                        <Package className="w-4 h-4 text-amber-700" /> Daftar Barang yang Telah Didistribusikan ({cart.length} item)
+                      </h4>
+                      <div className="space-y-2">
+                        {cart.map((c) => (
+                          <div key={c.cartId} className="flex items-center justify-between bg-white p-3 rounded-lg border border-amber-100 shadow-xs">
+                            <div>
+                              <p className="font-bold text-gray-900 text-[11px]">{c.namaBarang}</p>
+                              <p className="text-[10px] text-gray-500">ID: {c.barangId}</p>
+                            </div>
+                            <div className="flex items-center gap-4">
+                              <span className="font-bold text-amber-600 text-sm">-{c.jumlah} {c.satuan}</span>
+                              <button
+                                type="button"
+                                onClick={() => handleRemoveFromCart(c.cartId)}
+                                className="p-1.5 hover:bg-amber-100 text-amber-500 hover:text-amber-700 rounded-md transition-colors cursor-pointer"
+                                title="Hapus dari daftar"
+                              >
+                                <X className="w-4 h-4" />
+                              </button>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
                   <button
                     type="submit"
-                    disabled={!!validationError || !selectedBarangId}
+                    disabled={cart.length === 0}
                     className="w-full py-3 bg-amber-700 hover:bg-amber-800 disabled:opacity-50 text-white rounded-xl text-xs sm:text-sm font-bold shadow-md transition-all cursor-pointer text-center flex items-center justify-center gap-2"
                   >
-                    <CalendarClock className="w-4 h-4" /> Simpan Data Susulan Distribusi BMN
+                    <CalendarClock className="w-4 h-4" /> Simpan Data Susulan Distribusi BMN ({cart.length} Item)
                   </button>
                 </form>
               </div>
