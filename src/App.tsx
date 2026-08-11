@@ -697,14 +697,24 @@ const handler = setTimeout(async () => {
 
   // --- TRANS MUTATION CONTROLLERS ---
 
-  const handleProcessTransaksiMasuk = (trans: Omit<BarangMasuk, 'id' | 'tanggal'>, langsungKeluar?: { unitId: string, keperluan: string, petugas: string, catatan: string }) => {
-    const newId = `TRM-${new Date().toISOString().slice(2, 10).replace(/-/g, '')}-${String(barangMasukList.length + 1).padStart(2, '0')}`;
-    const timestamp = new Date().toISOString();
+  const handleProcessTransaksiMasuk = (
+    trans: Omit<BarangMasuk, 'id'> & { id?: string; tanggal?: string },
+    langsungKeluar?: { unitId: string, keperluan: string, petugas: string, catatan: string, tanggal?: string }
+  ) => {
+    const timestamp = trans.tanggal || new Date().toISOString();
+    const dateObj = new Date(timestamp);
+    const dateStr = !isNaN(dateObj.getTime()) 
+      ? dateObj.toISOString().slice(2, 10).replace(/-/g, '') 
+      : new Date().toISOString().slice(2, 10).replace(/-/g, '');
+    const newId = trans.id || `TRM-${dateStr}-${String(barangMasukList.length + 1).padStart(2, '0')}`;
 
     const newTrans: BarangMasuk = {
       ...trans,
       id: newId,
-      tanggal: timestamp
+      tanggal: timestamp,
+      isSusulan: trans.isSusulan || false,
+      keteranganSusulan: trans.keteranganSusulan,
+      waktuInputSistem: trans.waktuInputSistem || new Date().toISOString()
     };
 
     // 1. Append inbound history
@@ -739,13 +749,15 @@ const handler = setTimeout(async () => {
       namaBarang: trans.namaBarang,
       jumlah: trans.jumlah,
       petugas: trans.petugas,
-      keterangan: `Barang masuk penyedia ${trans.supplier}. ${trans.catatan || ''}`
+      keterangan: trans.isSusulan
+        ? `[DATA SUSULAN/BACKDATED] Barang masuk penyedia ${trans.supplier}. Alasan: ${trans.keteranganSusulan || '-'}. ${trans.catatan || ''}`
+        : `Barang masuk penyedia ${trans.supplier}. ${trans.catatan || ''}`
     };
     setRiwayatList(prev => [newRiwayat, ...prev]);
 
     writeAuditLog(
-      'Transaksi Masuk',
-      `Menerima barang masuk: ${trans.jumlah} unit "${trans.namaBarang}" dari ${trans.supplier} (${newId})`
+      trans.isSusulan ? 'Transaksi Masuk Susulan' : 'Transaksi Masuk',
+      `${trans.isSusulan ? '[DATA SUSULAN] ' : ''}Menerima barang masuk: ${trans.jumlah} unit "${trans.namaBarang}" dari ${trans.supplier} (${newId})${trans.isSusulan ? ` (Waktu Fisik: ${new Date(timestamp).toLocaleString('id-ID')})` : ''}`
     );
 
     // Handle Langsung Keluar jika ada
@@ -757,14 +769,17 @@ const handler = setTimeout(async () => {
          unitId: langsungKeluar.unitId,
          petugas: langsungKeluar.petugas,
          keperluan: langsungKeluar.keperluan,
-         catatan: langsungKeluar.catatan
+         catatan: langsungKeluar.catatan,
+         tanggal: langsungKeluar.tanggal || timestamp,
+         isSusulan: trans.isSusulan,
+         keteranganSusulan: trans.keteranganSusulan
        });
     }
 
     // 5. Trigger system notification
     sendSystemNotification(
       'barang_masuk',
-      `Barang Masuk: ${trans.jumlah} unit "${trans.namaBarang}" diterima dari penyedia ${trans.supplier}`,
+      `${trans.isSusulan ? '[SUSULAN] ' : ''}Barang Masuk: ${trans.jumlah} unit "${trans.namaBarang}" diterima dari penyedia ${trans.supplier}`,
       {
         namaBarang: trans.namaBarang,
         jumlah: trans.jumlah,
@@ -782,15 +797,24 @@ const handler = setTimeout(async () => {
     );
   };
 
-  const handleProcessTransaksiKeluar = (trans: Omit<BarangKeluar, 'id' | 'tanggal' | 'statusPersetujuan'>) => {
-    const newId = `TRK-${new Date().toISOString().slice(2, 10).replace(/-/g, '')}-${String(barangKeluarList.length + 1).padStart(2, '0')}`;
-    const timestamp = new Date().toISOString();
+  const handleProcessTransaksiKeluar = (
+    trans: Omit<BarangKeluar, 'id' | 'statusPersetujuan'> & { id?: string; tanggal?: string }
+  ) => {
+    const timestamp = trans.tanggal || new Date().toISOString();
+    const dateObj = new Date(timestamp);
+    const dateStr = !isNaN(dateObj.getTime()) 
+      ? dateObj.toISOString().slice(2, 10).replace(/-/g, '') 
+      : new Date().toISOString().slice(2, 10).replace(/-/g, '');
+    const newId = trans.id || `TRK-${dateStr}-${String(barangKeluarList.length + 1).padStart(2, '0')}`;
 
     const newTrans: BarangKeluar = {
       ...trans,
       id: newId,
       tanggal: timestamp,
-      statusPersetujuan: 'Disetujui'
+      statusPersetujuan: 'Disetujui',
+      isSusulan: trans.isSusulan || false,
+      keteranganSusulan: trans.keteranganSusulan,
+      waktuInputSistem: trans.waktuInputSistem || new Date().toISOString()
     };
 
     // 1. Append to outbound list with "Disetujui" status
@@ -848,19 +872,21 @@ const handler = setTimeout(async () => {
       namaBarang: trans.namaBarang,
       jumlah: vol,
       petugas: trans.petugas,
-      keterangan: `Didistribusikan ke unit ${trans.unitId}. Keperluan: ${trans.keperluan}. ${trans.catatan || ''}`
+      keterangan: trans.isSusulan
+        ? `[DATA SUSULAN/BACKDATED] Didistribusikan ke unit ${trans.unitId}. Keperluan: ${trans.keperluan}. Alasan: ${trans.keteranganSusulan || '-'}. ${trans.catatan || ''}`
+        : `Didistribusikan ke unit ${trans.unitId}. Keperluan: ${trans.keperluan}. ${trans.catatan || ''}`
     };
     setRiwayatList(prev => [newRiwayat, ...prev]);
 
     writeAuditLog(
-      'Transaksi Keluar',
-      `Mengeluarkan barang persediaan: ${trans.jumlah} unit "${trans.namaBarang}" untuk ${trans.unitId} (${newId})`
+      trans.isSusulan ? 'Transaksi Keluar Susulan' : 'Transaksi Keluar',
+      `${trans.isSusulan ? '[DATA SUSULAN] ' : ''}Mengeluarkan barang persediaan: ${trans.jumlah} unit "${trans.namaBarang}" untuk ${trans.unitId} (${newId})${trans.isSusulan ? ` (Waktu Fisik: ${new Date(timestamp).toLocaleString('id-ID')})` : ''}`
     );
 
     // 4. Trigger system notification
     sendSystemNotification(
       'barang_keluar',
-      `Barang Keluar: ${trans.jumlah} unit "${trans.namaBarang}" dikeluarkan untuk unit ${trans.unitId}`,
+      `${trans.isSusulan ? '[SUSULAN] ' : ''}Barang Keluar: ${trans.jumlah} unit "${trans.namaBarang}" dikeluarkan untuk unit ${trans.unitId}`,
       {
         namaBarang: trans.namaBarang,
         jumlah: trans.jumlah,
@@ -1262,6 +1288,7 @@ const handler = setTimeout(async () => {
                 <DashboardView
                   barang={barangList}
                   kategoriList={kategoriList}
+                  satuanList={satuanList}
                   categoriesCount={kategoriList.length}
                   suppliersCount={supplierList.length}
                   barangMasukCountToday={barangMasukToday}

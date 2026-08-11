@@ -4,6 +4,7 @@
  */
 
 import { Kategori, Supplier, Unit, Satuan, Barang, BarangMasuk, BarangKeluar, Riwayat, AuditLog, SystemNotification, Settings, Pegawai, DriveFileItem } from './types';
+import { STANDARD_SATUAN_PRESETS } from './utils/unitUtils';
 
 export const INITIAL_KATEGORI: Kategori[] = [];
 
@@ -11,7 +12,16 @@ export const INITIAL_SUPPLIER: Supplier[] = [];
 
 export const INITIAL_UNIT: Unit[] = [];
 
-export const INITIAL_SATUAN: Satuan[] = [];
+export const INITIAL_SATUAN: Satuan[] = STANDARD_SATUAN_PRESETS.map((p, idx) => ({
+  id: `SAT-${String(idx + 1).padStart(3, '0')}`,
+  nama: p.nama,
+  keterangan: p.keterangan,
+  tipe: p.tipe,
+  faktorKonversi: p.faktorKonversi,
+  satuanDasar: p.satuanDasar,
+  rekomendasiStokMin: p.rekomendasiStokMin,
+  rekomendasiStokMaks: p.rekomendasiStokMaks,
+}));
 
 export const INITIAL_BARANG: Barang[] = [];
 

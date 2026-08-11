@@ -28,6 +28,13 @@ import { Barang, Kategori, Supplier, Satuan } from '../types';
 import ImagePicker from './ImagePicker';
 import ExportConfirmModal from './ExportConfirmModal';
 import ConfirmationModal from './ConfirmationModal';
+import {
+  evaluateStockStatus,
+  getEquivalentBaseStock,
+  getEffectiveStokMin,
+  getEffectiveStokMaks,
+  getSatuanMetadata
+} from '../utils/unitUtils';
 
 interface BarangViewProps {
   barang: Barang[];
@@ -123,15 +130,14 @@ export default function BarangView({
     const matchesCategory = selectedCategory ? item.kategori === selectedCategory : true;
 
     let matchesStock = true;
-    const stokSekarang = Number(item.stokSekarang) || 0;
-    const stokMin = Number(item.stokMin) || 0;
+    const evaluation = evaluateStockStatus(item, satuanList);
     
     if (stockFilter === 'safe') {
-      matchesStock = stokSekarang >= stokMin && stokSekarang > 0;
+      matchesStock = evaluation.isSafe;
     } else if (stockFilter === 'low') {
-      matchesStock = stokSekarang < stokMin && stokSekarang > 0;
+      matchesStock = evaluation.isLowStock;
     } else if (stockFilter === 'empty') {
-      matchesStock = stokSekarang === 0;
+      matchesStock = evaluation.isOutOfStock;
     }
 
     return matchesSearch && matchesCategory && matchesStock;
@@ -157,17 +163,20 @@ export default function BarangView({
     const sameCatItems = barang.filter(b => b.kategoriId === firstCatId || b.kategori === firstCatNama);
     const nextCode = String(sameCatItems.length + 1).padStart(6, '0');
 
+    const defaultSatuan = satuanList[0]?.nama || 'Buah';
+    const meta = getSatuanMetadata(defaultSatuan, satuanList);
+
     setFormData({
       id: nextCode,
       kategoriId: firstCatId,
       kategori: firstCatNama,
       nama: '',
       supplier: supplierList[0]?.nama || '',
-      satuan: satuanList[0]?.nama || 'Pcs',
+      satuan: defaultSatuan,
       lokasiRak: 'Rak ATK - A1',
-      stokSekarang: 10,
-      stokMin: 5,
-      stokMaks: 100,
+      stokSekarang: meta.rekomendasiStokMin * 2,
+      stokMin: meta.rekomendasiStokMin,
+      stokMaks: meta.rekomendasiStokMaks,
       deskripsi: '',
       imageUrl: 'https://images.unsplash.com/photo-1586075010923-2dd4570fb338?auto=format&fit=crop&q=80&w=200'
     });
@@ -233,28 +242,44 @@ export default function BarangView({
     setShowDetailModal(true);
   };
 
-  const getStockStatusBadge = (current: number, min: number) => {
-    if (current === 0) {
+  const getStockStatusBadge = (item: Barang) => {
+    const evaluation = evaluateStockStatus(item, satuanList);
+    if (evaluation.isOutOfStock) {
       return (
-        <span className="inline-flex items-center gap-1.5 px-2 py-1 rounded-full text-xs font-bold bg-red-100 text-red-700 whitespace-nowrap">
-          <span className="w-1.5 h-1.5 bg-red-600 rounded-full" />
-          Stok Habis (0)
-        </span>
+        <div className="flex flex-col items-center">
+          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold bg-rose-100 text-rose-800 whitespace-nowrap border border-rose-200">
+            <span className="w-1.5 h-1.5 bg-rose-600 rounded-full" />
+            Stok Habis (0)
+          </span>
+          <span className="text-[10px] text-rose-600 font-semibold mt-0.5">Min: {evaluation.effectiveMin} {item.satuan}</span>
+        </div>
       );
     }
-    if (current < min) {
+    if (evaluation.isLowStock) {
       return (
-        <span className="inline-flex items-center gap-1.5 px-2 py-1 rounded-full text-xs font-bold bg-amber-100 text-amber-700 whitespace-nowrap">
-          <span className="w-1.5 h-1.5 bg-amber-600 rounded-full" />
-          Kritis ({current})
-        </span>
+        <div className="flex flex-col items-center">
+          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold bg-amber-100 text-amber-800 whitespace-nowrap border border-amber-200">
+            <span className="w-1.5 h-1.5 bg-amber-600 rounded-full" />
+            Kritis ({item.stokSekarang} {item.satuan})
+          </span>
+          <span className="text-[10px] text-amber-700 font-semibold mt-0.5">
+            Batas Min: {evaluation.effectiveMin} {item.satuan}
+          </span>
+        </div>
       );
     }
     return (
-      <span className="inline-flex items-center gap-1.5 px-2 py-1 rounded-full text-xs font-bold bg-green-100 text-green-700 whitespace-nowrap">
-        <span className="w-1.5 h-1.5 bg-green-600 rounded-full" />
-        Aman ({current})
-      </span>
+      <div className="flex flex-col items-center">
+        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold bg-emerald-100 text-emerald-800 whitespace-nowrap border border-emerald-200">
+          <span className="w-1.5 h-1.5 bg-emerald-600 rounded-full" />
+          Aman ({item.stokSekarang} {item.satuan})
+        </span>
+        {evaluation.isMultiUnit && (
+          <span className="text-[10px] text-emerald-700 font-medium mt-0.5">
+            ≈ {evaluation.baseQty.toLocaleString('id-ID')} {evaluation.baseSatuan}
+          </span>
+        )}
+      </div>
     );
   };
 
@@ -412,12 +437,23 @@ export default function BarangView({
                         </span>
                       </div>
                     </td>
-                    <td className="p-4 max-w-[200px]">
+                    <td className="p-4 max-w-[220px]">
                       <div className="font-bold text-gray-900 truncate" title={item.nama}>
                         {item.nama}
                       </div>
-                      <div className="text-[10px] text-gray-500 font-medium mt-0.5">
-                        Satuan: {item.satuan}
+                      <div className="text-[10px] text-gray-500 font-medium mt-0.5 flex flex-wrap items-center gap-1.5">
+                        <span>Satuan: <strong className="text-gray-700">{item.satuan}</strong></span>
+                        {(() => {
+                          const equiv = getEquivalentBaseStock(Number(item.stokSekarang) || 0, item.satuan, satuanList);
+                          if (equiv.isMultiUnit) {
+                            return (
+                              <span className="text-blue-600 bg-blue-50 px-1.5 py-0.2 rounded text-[9px] font-bold border border-blue-200">
+                                1 {item.satuan} = {equiv.faktorKonversi} {equiv.baseSatuan}
+                              </span>
+                            );
+                          }
+                          return null;
+                        })()}
                       </div>
                     </td>
                     <td className="p-4">
@@ -434,7 +470,7 @@ export default function BarangView({
                       </div>
                     </td>
                     <td className="p-4 text-center">
-                      {getStockStatusBadge(item.stokSekarang, item.stokMin)}
+                      {getStockStatusBadge(item)}
                     </td>
                     <td className="p-4">
                       <div className="flex items-center justify-center gap-1.5">
@@ -570,24 +606,58 @@ export default function BarangView({
               </div>
 
               {/* Technical Specifications */}
-              <div className="grid grid-cols-2 gap-3 text-xs border-t border-gray-100 pt-4">
-                <div>
-                  <span className="text-gray-400 block">Stok Sekarang</span>
-                  <span className="font-bold text-gray-900 block mt-0.5">{activeItem.stokSekarang} {activeItem.satuan}</span>
-                </div>
-                <div>
-                  <span className="text-gray-400 block">Lokasi Rak</span>
-                  <span className="font-bold text-gray-900 block mt-0.5">{activeItem.lokasiRak}</span>
-                </div>
-                <div>
-                  <span className="text-gray-400 block">Stok Minimum</span>
-                  <span className="font-bold text-gray-900 block mt-0.5">{activeItem.stokMin} {activeItem.satuan}</span>
-                </div>
-                <div>
-                  <span className="text-gray-400 block">Supplier</span>
-                  <span className="font-bold text-gray-900 block mt-0.5 truncate">{activeItem.supplier}</span>
-                </div>
-              </div>
+              {(() => {
+                const evalItem = evaluateStockStatus(activeItem, satuanList);
+                const equiv = getEquivalentBaseStock(Number(activeItem.stokSekarang) || 0, activeItem.satuan, satuanList);
+                return (
+                  <div className="space-y-3 border-t border-gray-100 pt-4">
+                    <div className="grid grid-cols-2 gap-3 text-xs">
+                      <div className="bg-slate-50 p-2.5 rounded-xl border border-slate-100">
+                        <span className="text-gray-400 block text-[10px] font-bold uppercase">Stok Saat Ini</span>
+                        <span className="font-extrabold text-gray-900 block mt-0.5 text-sm">
+                          {activeItem.stokSekarang} {activeItem.satuan}
+                        </span>
+                        {equiv.isMultiUnit && (
+                          <span className="text-[10px] text-blue-600 font-bold block mt-0.5">
+                            Setara: {equiv.baseQty.toLocaleString('id-ID')} {equiv.baseSatuan}
+                          </span>
+                        )}
+                      </div>
+                      <div className="bg-slate-50 p-2.5 rounded-xl border border-slate-100">
+                        <span className="text-gray-400 block text-[10px] font-bold uppercase">Batas Stok Minimum</span>
+                        <span className="font-extrabold text-gray-900 block mt-0.5 text-sm">
+                          {evalItem.effectiveMin} {activeItem.satuan}
+                        </span>
+                        {evalItem.isMultiUnit && (
+                          <span className="text-[10px] text-gray-500 font-medium block mt-0.5">
+                            Setara: {evalItem.effectiveMin * evalItem.faktorKonversi} {evalItem.baseSatuan}
+                          </span>
+                        )}
+                      </div>
+                      <div>
+                        <span className="text-gray-400 block">Lokasi Rak</span>
+                        <span className="font-bold text-gray-900 block mt-0.5">{activeItem.lokasiRak}</span>
+                      </div>
+                      <div>
+                        <span className="text-gray-400 block">Supplier</span>
+                        <span className="font-bold text-gray-900 block mt-0.5 truncate">{activeItem.supplier}</span>
+                      </div>
+                    </div>
+
+                    {/* Stock Health Assessment Banner */}
+                    <div className={`p-2.5 rounded-xl border text-xs flex items-center justify-between ${
+                      evalItem.isOutOfStock ? 'bg-rose-50 border-rose-200 text-rose-800' :
+                      evalItem.isLowStock ? 'bg-amber-50 border-amber-200 text-amber-800' :
+                      'bg-emerald-50 border-emerald-200 text-emerald-800'
+                    }`}>
+                      <span className="font-bold">Status Kesehatan Persediaan:</span>
+                      <span className="font-black px-2 py-0.5 rounded-md bg-white border shadow-2xs">
+                        {evalItem.isOutOfStock ? 'Habis (0)' : evalItem.isLowStock ? 'Kritis (Perlu Pengadaan)' : 'Aman'}
+                      </span>
+                    </div>
+                  </div>
+                );
+              })()}
 
               {/* Description */}
               <div className="border-t border-gray-100 pt-3">
@@ -691,19 +761,65 @@ export default function BarangView({
                 </div>
 
                 {/* Satuan */}
-                <div className="space-y-1">
-                  <label className="block text-gray-500">Satuan Pengukuran *</label>
+                <div className="space-y-1 sm:col-span-2">
+                  <div className="flex items-center justify-between">
+                    <label className="block text-gray-500">Satuan Pengukuran *</label>
+                    {(() => {
+                      const meta = getSatuanMetadata(formData.satuan, satuanList);
+                      return (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setFormData(prev => ({
+                              ...prev,
+                              stokMin: meta.rekomendasiStokMin,
+                              stokMaks: meta.rekomendasiStokMaks
+                            }));
+                          }}
+                          className="text-[10px] text-blue-600 hover:text-blue-700 font-bold underline cursor-pointer"
+                        >
+                          Gunakan Standar Satuan ({meta.rekomendasiStokMin} {meta.nama})
+                        </button>
+                      );
+                    })()}
+                  </div>
                   <select
                     value={formData.satuan}
-                    onChange={e => setFormData({ ...formData, satuan: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-600 focus:outline-none"
+                    onChange={e => {
+                      const newSatuan = e.target.value;
+                      const meta = getSatuanMetadata(newSatuan, satuanList);
+                      setFormData(prev => ({
+                        ...prev,
+                        satuan: newSatuan,
+                        stokMin: meta.rekomendasiStokMin,
+                        stokMaks: meta.rekomendasiStokMaks
+                      }));
+                    }}
+                    className="w-full px-3 py-2 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-600 focus:outline-none font-bold text-gray-800"
                   >
                     {satuanList.map(st => (
                       <option key={st.id} value={st.nama}>
-                        {st.nama}
+                        {st.nama} {st.faktorKonversi && st.faktorKonversi > 1 ? `(1 ${st.nama} = ${st.faktorKonversi} ${st.satuanDasar})` : ''}
                       </option>
                     ))}
                   </select>
+
+                  {(() => {
+                    const meta = getSatuanMetadata(formData.satuan, satuanList);
+                    return (
+                      <div className="bg-blue-50/80 p-2.5 rounded-xl border border-blue-200/70 text-[11px] text-blue-900 mt-1 flex items-start gap-2">
+                        <Sparkles className="w-3.5 h-3.5 text-blue-600 flex-shrink-0 mt-0.5" />
+                        <div>
+                          <p className="font-bold">
+                            {meta.isMultiUnit ? `Satuan Kemasan Grosir: 1 ${meta.nama} = ${meta.faktorKonversi} ${meta.satuanDasar}` : `Satuan Eceran Tunggal: 1 ${meta.nama}`}
+                          </p>
+                          <p className="text-blue-700 mt-0.5">
+                            Rekomendasi Batas Min: <strong>{meta.rekomendasiStokMin} {meta.nama}</strong> {meta.isMultiUnit ? `(setara ${meta.rekomendasiStokMin * meta.faktorKonversi} ${meta.satuanDasar})` : ''} • Batas Maks: <strong>{meta.rekomendasiStokMaks} {meta.nama}</strong>
+                          </p>
+                        </div>
+                      </div>
+                    );
+                  })()}
                 </div>
 
                 {/* Lokasi Rak */}
@@ -858,19 +974,63 @@ export default function BarangView({
                 </div>
 
                 {/* Satuan */}
-                <div className="space-y-1">
-                  <label className="block text-gray-500">Satuan Pengukuran *</label>
+                <div className="space-y-1 sm:col-span-2">
+                  <div className="flex items-center justify-between">
+                    <label className="block text-gray-500">Satuan Pengukuran *</label>
+                    {(() => {
+                      const meta = getSatuanMetadata(editFormData.satuan || '', satuanList);
+                      return (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setEditFormData(prev => ({
+                              ...prev,
+                              stokMin: meta.rekomendasiStokMin
+                            }));
+                          }}
+                          className="text-[10px] text-blue-600 hover:text-blue-700 font-bold underline cursor-pointer"
+                        >
+                          Gunakan Standar Satuan ({meta.rekomendasiStokMin} {meta.nama})
+                        </button>
+                      );
+                    })()}
+                  </div>
                   <select
                     value={editFormData.satuan}
-                    onChange={e => setEditFormData({ ...editFormData, satuan: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-600 focus:outline-none"
+                    onChange={e => {
+                      const newSatuan = e.target.value;
+                      const meta = getSatuanMetadata(newSatuan, satuanList);
+                      setEditFormData(prev => ({
+                        ...prev,
+                        satuan: newSatuan,
+                        stokMin: meta.rekomendasiStokMin
+                      }));
+                    }}
+                    className="w-full px-3 py-2 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-600 focus:outline-none font-bold text-gray-800"
                   >
                     {satuanList.map(st => (
                       <option key={st.id} value={st.nama}>
-                        {st.nama}
+                        {st.nama} {st.faktorKonversi && st.faktorKonversi > 1 ? `(1 ${st.nama} = ${st.faktorKonversi} ${st.satuanDasar})` : ''}
                       </option>
                     ))}
                   </select>
+
+                  {(() => {
+                    const meta = getSatuanMetadata(editFormData.satuan || '', satuanList);
+                    return (
+                      <div className="bg-blue-50/80 p-2.5 rounded-xl border border-blue-200/70 text-[11px] text-blue-900 mt-1 flex items-start gap-2">
+                        <Sparkles className="w-3.5 h-3.5 text-blue-600 flex-shrink-0 mt-0.5" />
+                        <div>
+                          <p className="font-bold">
+                            {meta.isMultiUnit ? `Satuan Kemasan Grosir: 1 ${meta.nama} = ${meta.faktorKonversi} ${meta.satuanDasar}` : `Satuan Eceran Tunggal: 1 ${meta.nama}`}
+                          </p>
+                          <p className="text-blue-700 mt-0.5">
+                            Rekomendasi Batas Min: <strong>{meta.rekomendasiStokMin} {meta.nama}</strong> {meta.isMultiUnit ? `(setara ${meta.rekomendasiStokMin * meta.faktorKonversi} ${meta.satuanDasar})` : ''}
+                          </p>
+                        </div>
+                      </div>
+                    );
+                  })()}
                 </div>
 
                 {/* Lokasi Rak */}

@@ -20,15 +20,17 @@ import {
   AlertCircle,
   QrCode
 } from 'lucide-react';
-import { Barang, ActiveTab, AuditLog, Unit, Pegawai, BarangKeluar, Kategori } from '../types';
+import { Barang, ActiveTab, AuditLog, Unit, Pegawai, BarangKeluar, Kategori, Satuan } from '../types';
 import QRScannerModal from './QRScannerModal';
 import DashboardCharts from './DashboardCharts';
 import { useState, useEffect } from 'react';
-import { Check, X, ShieldAlert, Clock } from 'lucide-react';
+import { Check, X, ShieldAlert, Clock, Sparkles } from 'lucide-react';
+import { evaluateStockStatus, sortBarangByUrgency, getEquivalentBaseStock } from '../utils/unitUtils';
 
 interface DashboardViewProps {
   barang: Barang[];
   kategoriList?: Kategori[];
+  satuanList?: Satuan[];
   categoriesCount: number;
   suppliersCount: number;
   barangMasukCountToday: number;
@@ -47,6 +49,7 @@ interface DashboardViewProps {
 export default function DashboardView({
   barang,
   kategoriList = [],
+  satuanList = [],
   categoriesCount,
   suppliersCount,
   barangMasukCountToday,
@@ -71,15 +74,27 @@ export default function DashboardView({
   const todayDateStr = `${now.getDate()} ${now.toLocaleDateString('id-ID', { month: 'long' })} ${now.getFullYear()}`;
 
   const totalBarang = barang.length;
-  const getStokMin = (b: Barang) => Number(b.stokMin) > 0 ? Number(b.stokMin) : 5;
-  const stokAman = barang.filter(b => Number(b.stokSekarang) > getStokMin(b)).length;
-  const stokMenipis = barang.filter(b => Number(b.stokSekarang) <= getStokMin(b) && Number(b.stokSekarang) > 0).length;
-  const stokHabis = barang.filter(b => Number(b.stokSekarang) === 0).length;
+  
+  // Intelligent Multi-Unit Stock Evaluation
+  const evaluatedItems = barang.map(b => ({
+    item: b,
+    evaluation: evaluateStockStatus(b, satuanList)
+  }));
+
+  const stokAman = evaluatedItems.filter(e => e.evaluation.isSafe).length;
+  const stokMenipis = evaluatedItems.filter(e => e.evaluation.isLowStock).length;
+  const stokHabis = evaluatedItems.filter(e => e.evaluation.isOutOfStock).length;
 
   const totalStokUnit = barang.reduce((sum, item) => sum + Number(item.stokSekarang), 0);
 
-  // Get items with low stock (stokSekarang <= stokMin)
-  const barangRendah = barang.filter(b => Number(b.stokSekarang) <= getStokMin(b)).sort((a, b) => Number(a.stokSekarang) - Number(b.stokSekarang));
+  // Get items with genuine restock urgency sorted by prioritized urgency score
+  const barangRendah = sortBarangByUrgency(
+    barang.filter(b => {
+      const ev = evaluateStockStatus(b, satuanList);
+      return ev.isOutOfStock || ev.isLowStock;
+    }),
+    satuanList
+  );
 
   // Categorize for charts
   const categoryCounts: { [key: string]: number } = {};
@@ -658,12 +673,15 @@ export default function DashboardView({
         {/* Low Stock Alerts */}
         <div className="bg-white p-6 rounded-xl border border-[#E5E7EB] shadow-sm flex flex-col h-full">
           <div className="flex items-center justify-between border-b border-[#E5E7EB] pb-3 mb-4">
-            <h3 className="font-bold text-[#111827] text-sm flex items-center gap-1.5">
-              <AlertCircle className="w-4 h-4 text-amber-500" />
-              Peringatan Stok Menipis
-            </h3>
-            <span className="text-[10px] bg-amber-50 text-amber-700 px-2 py-0.5 rounded font-bold">
-              {barangRendah.length} Item
+            <div>
+              <h3 className="font-bold text-[#111827] text-sm flex items-center gap-1.5">
+                <AlertCircle className="w-4 h-4 text-amber-500" />
+                Peringatan Stok Menipis & Kritis
+              </h3>
+              <p className="text-[10px] text-gray-500 mt-0.5">Dihitung cerdas berdasarkan konversi satuan fisik</p>
+            </div>
+            <span className="text-[10px] bg-amber-50 text-amber-700 px-2 py-0.5 rounded font-bold border border-amber-200">
+              {barangRendah.length} Item Perlu Restok
             </span>
           </div>
 
@@ -671,35 +689,51 @@ export default function DashboardView({
             {barangRendah.length === 0 ? (
               <div className="py-12 text-center text-xs text-[#6B7280] flex flex-col items-center gap-2">
                 <CheckCircle2 className="w-8 h-8 text-green-500" />
-                Seluruh stok barang aman!
+                Seluruh stok barang persediaan aman terkendali!
               </div>
             ) : (
-              barangRendah.map(item => (
-                <div key={item.id} className="p-4 bg-[#F8FAFC] border border-[#E5E7EB] rounded-lg flex items-center justify-between gap-3 text-xs">
-                  <div className="min-w-0">
-                    <p className="font-semibold text-[#111827] truncate">{item.nama}</p>
-                    <p className="text-[10px] text-[#6B7280] mt-0.5">{item.kategori} • Rak: {item.lokasiRak}</p>
-                    <div className="flex items-center gap-2 mt-2">
-                      <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${item.stokSekarang === 0 ? 'bg-[#FEE2E2] text-[#991B1B]' : 'bg-[#FEF3C7] text-[#92400E]'}`}>
-                        {item.stokSekarang} {item.satuan}
-                      </span>
-                      <span className="text-[10px] text-[#6B7280] font-medium">Min: {Number(item.stokMin) > 0 ? item.stokMin : 5}</span>
+              barangRendah.map(item => {
+                const evalItem = evaluateStockStatus(item, satuanList);
+                return (
+                  <div key={item.id} className="p-3.5 bg-[#F8FAFC] border border-[#E5E7EB] rounded-xl flex items-center justify-between gap-3 text-xs hover:border-blue-300 transition-colors">
+                    <div className="min-w-0 flex-1">
+                      <p className="font-bold text-[#111827] truncate">{item.nama}</p>
+                      <p className="text-[10px] text-[#6B7280] mt-0.5">{item.kategori} • Rak: {item.lokasiRak}</p>
+                      
+                      <div className="flex flex-wrap items-center gap-1.5 mt-2">
+                        <span className={`px-2 py-0.5 rounded-md text-[10px] font-extrabold ${
+                          evalItem.isOutOfStock ? 'bg-rose-100 text-rose-800 border border-rose-200' : 'bg-amber-100 text-amber-800 border border-amber-200'
+                        }`}>
+                          {evalItem.isOutOfStock ? 'Stok Habis (0)' : `Kritis: ${item.stokSekarang} ${item.satuan}`}
+                        </span>
+                        
+                        <span className="text-[10px] text-gray-500 font-medium">
+                          Batas Min: <strong className="text-gray-700">{evalItem.effectiveMin} {item.satuan}</strong>
+                        </span>
+
+                        {evalItem.isMultiUnit && (
+                          <span className="text-[9px] text-blue-700 bg-blue-50 px-1.5 py-0.5 rounded font-bold border border-blue-200">
+                            1 {item.satuan} = {evalItem.faktorKonversi} {evalItem.baseSatuan}
+                          </span>
+                        )}
+                      </div>
                     </div>
+
+                    <button
+                      onClick={() => {
+                        if (setQuickAddType && setQuickAddBarangId) {
+                          setQuickAddType('masuk');
+                          setQuickAddBarangId(item.id);
+                        }
+                        setActiveTab('barang_masuk');
+                      }}
+                      className="flex-shrink-0 px-3.5 py-2 bg-[#2563EB] hover:bg-blue-700 text-white font-bold rounded-xl text-xs transition-all cursor-pointer shadow-xs"
+                    >
+                      Restok
+                    </button>
                   </div>
-                  <button
-                    onClick={() => {
-                      if (setQuickAddType && setQuickAddBarangId) {
-                        setQuickAddType('masuk');
-                        setQuickAddBarangId(item.id);
-                      }
-                      setActiveTab('barang_masuk');
-                    }}
-                    className="flex-shrink-0 px-3 py-1.5 bg-[#2563EB] hover:bg-blue-600 text-white font-bold rounded-lg text-[10px] transition-all cursor-pointer"
-                  >
-                    Restok
-                  </button>
-                </div>
-              ))
+                );
+              })
             )}
           </div>
         </div>

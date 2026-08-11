@@ -7,7 +7,8 @@ import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { 
   Search, X, Check, Package, FolderTree, QrCode, MapPin, 
   AlertTriangle, CheckCircle2, ChevronDown, Layers, Sparkles,
-  ExternalLink, Eye, ArrowUpDown, Filter
+  ExternalLink, Eye, ArrowUpDown, Filter, CheckCircle, RefreshCw,
+  Info, Tag
 } from 'lucide-react';
 import { Barang, Kategori } from '../types';
 
@@ -37,6 +38,16 @@ export default function BarangSearchPicker({
   const [showCatalogModal, setShowCatalogModal] = useState(false);
   const [catalogCategoryFilter, setCatalogCategoryFilter] = useState<string>('all');
   const [catalogSearch, setCatalogSearch] = useState('');
+  
+  // Notification Toast for item selection feedback
+  const [selectionToast, setSelectionToast] = useState<{
+    visible: boolean;
+    nama: string;
+    id: string;
+    stok: number;
+    satuan: string;
+    kategori: string;
+  } | null>(null);
 
   const containerRef = useRef<HTMLDivElement>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
@@ -56,6 +67,16 @@ export default function BarangSearchPicker({
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
+
+  // Auto-hide selection toast after 3.5s
+  useEffect(() => {
+    if (selectionToast?.visible) {
+      const timer = setTimeout(() => {
+        setSelectionToast(prev => prev ? { ...prev, visible: false } : null);
+      }, 3500);
+      return () => clearTimeout(timer);
+    }
+  }, [selectionToast?.visible]);
 
   // Filter items based on active search and category filter
   const filteredBarang = useMemo(() => {
@@ -126,6 +147,16 @@ export default function BarangSearchPicker({
     onSelectBarang(item);
     setIsOpenDropdown(false);
     setSearchQuery('');
+    
+    // Trigger toast notification
+    setSelectionToast({
+      visible: true,
+      nama: item.nama,
+      id: item.id,
+      stok: item.stokSekarang,
+      satuan: item.satuan || 'Unit',
+      kategori: item.kategori || ''
+    });
   };
 
   // Category counts calculation
@@ -183,27 +214,28 @@ export default function BarangSearchPicker({
     <div className="space-y-3" ref={containerRef}>
       {/* Category Pills Quick Filter */}
       <div className="space-y-1.5">
-        <div className="flex items-center justify-between">
-          <label className="text-[11px] font-bold text-slate-700 uppercase tracking-wider flex items-center gap-1.5">
-            <FolderTree className={`w-3.5 h-3.5 ${primaryText}`} />
-            Filter Kategori BMN
+        <div className="flex items-center justify-between gap-2">
+          <label className="text-[11px] font-bold text-slate-700 uppercase tracking-wider flex items-center gap-1.5 min-w-0">
+            <FolderTree className={`w-3.5 h-3.5 shrink-0 ${primaryText}`} />
+            <span className="truncate">Filter Kategori BMN</span>
           </label>
           <button
             type="button"
             onClick={() => setShowCatalogModal(true)}
-            className="text-[11px] font-bold text-indigo-600 hover:text-indigo-800 flex items-center gap-1 hover:underline cursor-pointer"
+            className="text-[11px] font-bold text-indigo-600 hover:text-indigo-800 flex items-center gap-1 hover:underline cursor-pointer shrink-0"
           >
-            <Layers className="w-3.5 h-3.5" />
-            Jelajahi Katalog Lengkap
+            <Layers className="w-3.5 h-3.5 shrink-0" />
+            <span className="hidden sm:inline">Jelajahi Katalog Lengkap</span>
+            <span className="sm:hidden">Katalog</span>
           </button>
         </div>
 
         {/* Scrollable Category Chips */}
-        <div className="flex items-center gap-1.5 overflow-x-auto pb-1.5 no-scrollbar text-xs">
+        <div className="flex items-center gap-1.5 overflow-x-auto pb-1 no-scrollbar text-xs -mx-1 px-1">
           <button
             type="button"
             onClick={() => setSelectedCategoryFilter('all')}
-            className={`px-3 py-1 rounded-lg font-bold text-[11px] shrink-0 transition-all flex items-center gap-1.5 cursor-pointer border ${
+            className={`px-2.5 sm:px-3 py-1 rounded-lg font-bold text-[11px] shrink-0 transition-all flex items-center gap-1.5 cursor-pointer border ${
               selectedCategoryFilter === 'all'
                 ? isMasuk 
                   ? 'bg-emerald-700 text-white border-emerald-700 shadow-xs' 
@@ -236,7 +268,7 @@ export default function BarangSearchPicker({
                 }`}
                 title={cat.nama}
               >
-                <span className="truncate max-w-[130px]">{cat.nama}</span>
+                <span className="truncate max-w-[110px] sm:max-w-[130px]">{cat.nama}</span>
                 <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-mono ${
                   isSelected ? 'bg-white/20 text-white' : 'bg-slate-100 text-slate-500'
                 }`}>
@@ -248,23 +280,68 @@ export default function BarangSearchPicker({
         </div>
       </div>
 
-      {/* Main Unified Search & Select Bar */}
-      <div className="space-y-1.5 relative">
-        <div className="flex items-center justify-between">
-          <label className="text-[11px] font-bold text-slate-700 uppercase tracking-wider flex items-center gap-1.5">
-            <Package className={`w-3.5 h-3.5 ${primaryText}`} />
-            Pilih Barang Persediaan *
-          </label>
-          {onOpenScanner && (
+      {/* Micro Confirmation Toast / Feedback Banner when item is picked */}
+      {selectionToast?.visible && (
+        <div className="p-2.5 sm:p-3 bg-gradient-to-r from-emerald-900 to-slate-900 text-white rounded-xl shadow-lg border border-emerald-400/40 flex items-center justify-between gap-2.5 animate-in fade-in slide-in-from-top-2 duration-200">
+          <div className="flex items-center gap-2 sm:gap-2.5 min-w-0">
+            <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-emerald-500/20 border border-emerald-400/30 flex items-center justify-center text-emerald-300 shrink-0">
+              <CheckCircle className="w-4 h-4" />
+            </div>
+            <div className="min-w-0">
+              <div className="flex items-center gap-1.5">
+                <span className="text-[10px] font-extrabold uppercase tracking-wider text-emerald-300 px-1.5 py-0.2 bg-emerald-950/80 rounded border border-emerald-500/30">
+                  ✓ Berhasil Dipilih
+                </span>
+                <span className="font-mono text-[10px] text-slate-300 truncate">[{selectionToast.id}]</span>
+              </div>
+              <p className="text-xs font-bold text-white truncate mt-0.5">
+                {selectionToast.nama}
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2 shrink-0">
+            <span className="text-[10px] sm:text-[11px] font-bold px-2 py-0.5 sm:py-1 bg-emerald-500/20 text-emerald-200 rounded-lg border border-emerald-400/30">
+              Stok: {selectionToast.stok} {selectionToast.satuan}
+            </span>
             <button
               type="button"
-              onClick={onOpenScanner}
-              className={`text-[11px] font-bold flex items-center gap-1 ${primaryText} hover:underline cursor-pointer`}
+              onClick={() => setSelectionToast(null)}
+              className="p-1 text-slate-400 hover:text-white rounded-md transition-colors"
             >
-              <QrCode className="w-3.5 h-3.5" />
-              Scan QR / Barcode
+              <X className="w-3.5 h-3.5" />
             </button>
-          )}
+          </div>
+        </div>
+      )}
+
+      {/* Main Unified Search & Select Bar */}
+      <div className="space-y-1.5 relative">
+        <div className="flex flex-wrap items-center justify-between gap-1.5">
+          <label className="text-[11px] font-bold text-slate-700 uppercase tracking-wider flex items-center gap-1.5">
+            <Package className={`w-3.5 h-3.5 shrink-0 ${primaryText}`} />
+            Pilih Barang Persediaan *
+          </label>
+          <div className="flex items-center gap-2">
+            {selectedItem && (
+              <span className="text-[10px] font-bold text-emerald-700 flex items-center gap-1 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200">
+                <CheckCircle2 className="w-3 h-3 shrink-0" />
+                <span className="hidden sm:inline">1 Barang Aktif Terpilih</span>
+                <span className="sm:hidden">Terpilih</span>
+              </span>
+            )}
+            {onOpenScanner && (
+              <button
+                type="button"
+                onClick={onOpenScanner}
+                className={`text-[11px] font-bold flex items-center gap-1 ${primaryText} hover:underline cursor-pointer`}
+              >
+                <QrCode className="w-3.5 h-3.5 shrink-0" />
+                <span className="hidden sm:inline">Scan QR / Barcode</span>
+                <span className="sm:hidden">Scan QR</span>
+              </button>
+            )}
+          </div>
         </div>
 
         {/* Search Input Box with Combobox Trigger */}
@@ -278,8 +355,8 @@ export default function BarangSearchPicker({
             type="text"
             placeholder={
               selectedItem 
-                ? `Cari pengganti atau ketik nama/kode barang... (Terpilih: ${selectedItem.nama})`
-                : 'Ketik nama barang, kode (e.g. 000001), kategori, atau lokasi rak...'
+                ? `Cari barang lain... (Terpilih: ${selectedItem.nama})`
+                : 'Ketik nama barang, kode (e.g. 000001), kategori...'
             }
             value={searchQuery}
             onChange={e => {
@@ -288,7 +365,9 @@ export default function BarangSearchPicker({
             }}
             onFocus={() => setIsOpenDropdown(true)}
             onKeyDown={handleKeyDown}
-            className={`w-full pl-9 pr-20 py-2.5 bg-white border border-slate-300 rounded-xl text-xs text-slate-900 font-medium placeholder:text-slate-400 focus:outline-none focus:ring-2 ${ringColor} transition-all shadow-2xs`}
+            className={`w-full pl-9 pr-20 sm:pr-24 py-2 sm:py-2.5 bg-white border ${
+              selectedItem ? (isMasuk ? 'border-emerald-400 ring-1 ring-emerald-400/30' : 'border-red-400 ring-1 ring-red-400/30') : 'border-slate-300'
+            } rounded-xl text-xs text-slate-900 font-medium placeholder:text-slate-400 focus:outline-none focus:ring-2 ${ringColor} transition-all shadow-2xs`}
           />
 
           <div className="absolute inset-y-0 right-0 pr-2 flex items-center gap-1">
@@ -327,7 +406,7 @@ export default function BarangSearchPicker({
                   <span> dalam kategori <strong className="text-indigo-600">{kategoriList.find(k => k.id === selectedCategoryFilter)?.nama || selectedCategoryFilter}</strong></span>
                 )}
               </span>
-              <span className="text-[10px] text-slate-400">Gunakan tombol ↑ ↓ Enter</span>
+              <span className="text-[10px] text-slate-400 hidden sm:inline">Gunakan tombol ↑ ↓ Enter</span>
             </div>
 
             {/* List items */}
@@ -364,15 +443,15 @@ export default function BarangSearchPicker({
                       key={item.id}
                       onClick={() => handleSelectItem(item)}
                       onMouseEnter={() => setHighlightedIndex(idx)}
-                      className={`p-3 cursor-pointer transition-colors flex items-center justify-between gap-3 ${
+                      className={`p-2.5 sm:p-3 cursor-pointer transition-colors flex items-center justify-between gap-2.5 ${
                         isSelected 
-                          ? isMasuk ? 'bg-emerald-50/80 font-bold' : 'bg-red-50/80 font-bold'
+                          ? isMasuk ? 'bg-emerald-50 font-bold border-l-4 border-emerald-600' : 'bg-red-50 font-bold border-l-4 border-red-600'
                           : isHighlighted
                             ? 'bg-slate-100/90'
                             : 'hover:bg-slate-50'
                       }`}
                     >
-                      <div className="flex items-start gap-2.5 min-w-0">
+                      <div className="flex items-start gap-2 sm:gap-2.5 min-w-0">
                         {/* Thumbnail / Category Icon */}
                         <div className="w-8 h-8 rounded-lg bg-slate-100 border border-slate-200 shrink-0 flex items-center justify-center text-slate-500 overflow-hidden mt-0.5">
                           {item.imageUrl ? (
@@ -389,11 +468,11 @@ export default function BarangSearchPicker({
 
                         {/* Title and details */}
                         <div className="min-w-0">
-                          <div className="flex items-center gap-1.5 flex-wrap">
-                            <span className="font-mono text-[10px] font-bold px-1.5 py-0.5 bg-slate-100 text-slate-700 rounded border border-slate-200">
+                          <div className="flex items-center gap-1 sm:gap-1.5 flex-wrap">
+                            <span className="font-mono text-[10px] font-bold px-1.5 py-0.2 bg-slate-100 text-slate-700 rounded border border-slate-200">
                               {highlightMatch(item.id, searchQuery)}
                             </span>
-                            <span className="text-[10px] font-semibold px-1.5 py-0.5 bg-indigo-50 text-indigo-700 rounded border border-indigo-100">
+                            <span className="text-[10px] font-semibold px-1.5 py-0.2 bg-indigo-50 text-indigo-700 rounded border border-indigo-100">
                               {item.kategori}
                             </span>
                             {item.lokasiRak && (
@@ -404,16 +483,16 @@ export default function BarangSearchPicker({
                             )}
                           </div>
 
-                          <p className="text-xs font-bold text-slate-900 mt-1 truncate">
+                          <p className="text-xs font-bold text-slate-900 mt-0.5 truncate">
                             {highlightMatch(item.nama, searchQuery)}
                           </p>
                         </div>
                       </div>
 
                       {/* Stock Badge & Selection Indicator */}
-                      <div className="text-right shrink-0 flex items-center gap-2.5">
+                      <div className="text-right shrink-0 flex items-center gap-2">
                         <div>
-                          <span className={`inline-block px-2 py-0.5 text-[11px] font-bold rounded-lg ${
+                          <span className={`inline-block px-1.5 sm:px-2 py-0.5 text-[10px] sm:text-[11px] font-bold rounded-lg ${
                             isOutOfStock 
                               ? 'bg-red-100 text-red-700 border border-red-200' 
                               : isLowStock 
@@ -422,14 +501,17 @@ export default function BarangSearchPicker({
                           }`}>
                             {item.stokSekarang} {item.satuan}
                           </span>
-                          <span className="block text-[9px] text-slate-400 mt-0.5">
-                            {isOutOfStock ? 'Habis' : isLowStock ? 'Stok Menipis' : 'Tersedia'}
-                          </span>
                         </div>
 
-                        {isSelected && (
-                          <div className={`p-1 rounded-full ${isMasuk ? 'bg-emerald-600 text-white' : 'bg-red-600 text-white'}`}>
-                            <Check className="w-3.5 h-3.5" />
+                        {isSelected ? (
+                          <div className={`px-2 py-1 rounded-md text-[10px] font-extrabold flex items-center gap-1 ${
+                            isMasuk ? 'bg-emerald-600 text-white' : 'bg-red-600 text-white'
+                          }`}>
+                            <Check className="w-3 h-3" /> <span className="hidden sm:inline">TERPILIH</span>
+                          </div>
+                        ) : (
+                          <div className="text-[10px] text-slate-500 font-semibold px-2 py-0.5 rounded border border-slate-200 bg-white hover:bg-slate-50">
+                            Pilih
                           </div>
                         )}
                       </div>
@@ -441,7 +523,7 @@ export default function BarangSearchPicker({
 
             {/* Footer with Catalog Modal trigger */}
             <div className="p-2 bg-slate-50 border-t border-slate-100 flex items-center justify-between text-[11px]">
-              <span className="text-slate-500">Ketik untuk mencari di semua bidang data</span>
+              <span className="text-slate-500">Cari di seluruh database BMN</span>
               <button
                 type="button"
                 onClick={() => {
@@ -450,92 +532,137 @@ export default function BarangSearchPicker({
                 }}
                 className="font-bold text-indigo-600 hover:text-indigo-800 flex items-center gap-1 cursor-pointer"
               >
-                Lihat Semua di Katalog <ExternalLink className="w-3 h-3" />
+                Katalog Lengkap <ExternalLink className="w-3 h-3" />
               </button>
             </div>
           </div>
         )}
       </div>
 
-      {/* Selected Item Visual Showcase Card */}
+      {/* Selected Item Visual Showcase Card - PROMINENTLY HIGHLIGHTED */}
       {selectedItem ? (
-        <div className={`p-3.5 rounded-xl border transition-all ${
+        <div className={`rounded-2xl border-2 transition-all overflow-hidden ${
           isMasuk 
-            ? 'bg-emerald-50/40 border-emerald-200/80 shadow-2xs' 
-            : 'bg-red-50/40 border-red-200/80 shadow-2xs'
+            ? 'bg-gradient-to-br from-emerald-50/90 via-white to-emerald-50/40 border-emerald-400 shadow-md shadow-emerald-500/5' 
+            : 'bg-gradient-to-br from-red-50/90 via-white to-red-50/40 border-red-400 shadow-md shadow-red-500/5'
         }`}>
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-            <div className="flex items-start gap-3">
-              <div className="w-12 h-12 rounded-xl bg-white border border-slate-200 shadow-2xs shrink-0 flex items-center justify-center text-slate-500 overflow-hidden">
-                {selectedItem.imageUrl ? (
-                  <img 
-                    src={selectedItem.imageUrl} 
-                    alt={selectedItem.nama} 
-                    className="w-full h-full object-cover" 
-                    referrerPolicy="no-referrer"
-                  />
-                ) : (
-                  <Package className={`w-6 h-6 ${primaryText}`} />
-                )}
+          {/* Header Accent Bar - Explicit Selected Affirmation */}
+          <div className={`px-3 sm:px-4 py-2 border-b flex items-center justify-between text-xs font-bold gap-2 ${
+            isMasuk 
+              ? 'bg-emerald-600 text-white border-emerald-600' 
+              : 'bg-red-600 text-white border-red-600'
+          }`}>
+            <div className="flex items-center gap-2 min-w-0">
+              <span className="relative flex h-2.5 w-2.5 shrink-0">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-white opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-white"></span>
+              </span>
+              <span className="tracking-wide uppercase text-[11px] font-extrabold truncate">
+                <span className="hidden sm:inline">✓ BARANG SUDAH DIPILIH & SIAP DITRANSAKSIKAN</span>
+                <span className="sm:hidden">✓ BARANG AKTIF TERPILIH</span>
+              </span>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => {
+                setIsOpenDropdown(true);
+                searchInputRef.current?.focus();
+              }}
+              className="text-[11px] font-bold px-2 sm:px-2.5 py-0.5 bg-white/20 hover:bg-white/30 text-white rounded-lg transition-colors flex items-center gap-1 cursor-pointer shrink-0"
+            >
+              <RefreshCw className="w-3 h-3" /> Ganti Barang
+            </button>
+          </div>
+
+          <div className="p-3 sm:p-4">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3.5 sm:gap-4">
+              <div className="flex items-start gap-3 sm:gap-3.5 min-w-0">
+                <div className={`w-12 h-12 sm:w-14 sm:h-14 rounded-xl sm:rounded-2xl bg-white border-2 ${
+                  isMasuk ? 'border-emerald-300' : 'border-red-300'
+                } shadow-xs shrink-0 flex items-center justify-center text-slate-500 overflow-hidden`}>
+                  {selectedItem.imageUrl ? (
+                    <img 
+                      src={selectedItem.imageUrl} 
+                      alt={selectedItem.nama} 
+                      className="w-full h-full object-cover hover:scale-110 transition-transform duration-300" 
+                      referrerPolicy="no-referrer"
+                    />
+                  ) : (
+                    <Package className={`w-6 h-6 sm:w-7 sm:h-7 ${primaryText}`} />
+                  )}
+                </div>
+
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    <span className="font-mono text-[11px] sm:text-xs font-black px-2 py-0.5 bg-slate-900 text-white rounded-md shadow-2xs">
+                      {selectedItem.id}
+                    </span>
+                    <span className="text-[10px] font-bold px-2 py-0.5 bg-indigo-100 text-indigo-800 rounded-md border border-indigo-200 truncate max-w-[120px]">
+                      {selectedItem.kategori}
+                    </span>
+                    <span className="text-[10px] font-medium text-slate-700 bg-white px-2 py-0.5 rounded-md border border-slate-200 flex items-center gap-1 shadow-2xs">
+                      <MapPin className="w-3 h-3 text-slate-400 shrink-0" />
+                      <span className="truncate max-w-[110px]">{selectedItem.lokasiRak || 'Gudang Utama'}</span>
+                    </span>
+                  </div>
+
+                  <h4 className="text-sm sm:text-base font-extrabold text-slate-900 mt-1 leading-snug break-words">
+                    {selectedItem.nama}
+                  </h4>
+
+                  {selectedItem.supplier && (
+                    <p className="text-[11px] text-slate-500 mt-0.5 truncate">
+                      Penyedia/Vendor: <span className="font-bold text-slate-700">{selectedItem.supplier}</span>
+                    </p>
+                  )}
+                </div>
               </div>
 
-              <div>
-                <div className="flex items-center gap-1.5 flex-wrap">
-                  <span className="font-mono text-[11px] font-extrabold px-2 py-0.5 bg-white text-slate-800 rounded-md border border-slate-200 shadow-2xs">
-                    {selectedItem.id}
+              {/* Current Stock Metrics Box */}
+              <div className="flex sm:flex-col items-center sm:items-end justify-between border-t sm:border-t-0 border-slate-200/80 pt-2.5 sm:pt-0 shrink-0 bg-slate-50/80 sm:bg-transparent p-2.5 sm:p-0 rounded-xl">
+                <span className="text-[10px] text-slate-500 uppercase tracking-wider font-extrabold">
+                  Posisi Stok Saat Ini
+                </span>
+                <div className="flex items-baseline gap-1.5 mt-0.5">
+                  <span className={`text-xl sm:text-2xl font-black ${
+                    selectedItem.stokSekarang <= 0 
+                      ? 'text-red-600' 
+                      : selectedItem.stokSekarang < selectedItem.stokMin 
+                        ? 'text-amber-600' 
+                        : 'text-slate-900'
+                  }`}>
+                    {selectedItem.stokSekarang}
                   </span>
-                  <span className="text-[10px] font-bold px-2 py-0.5 bg-indigo-100 text-indigo-800 rounded-md">
-                    {selectedItem.kategori}
-                  </span>
-                  <span className="text-[10px] font-medium text-slate-600 bg-white px-2 py-0.5 rounded-md border border-slate-200 flex items-center gap-1">
-                    <MapPin className="w-3 h-3 text-slate-400" />
-                    {selectedItem.lokasiRak || 'Gudang Utama'}
+                  <span className="text-xs font-extrabold text-slate-600 uppercase">
+                    {selectedItem.satuan || 'Unit'}
                   </span>
                 </div>
 
-                <h4 className="text-sm font-bold text-slate-900 mt-1">
-                  {selectedItem.nama}
-                </h4>
-
-                {selectedItem.supplier && (
-                  <p className="text-[11px] text-slate-500 mt-0.5">
-                    Supplier Utama: <span className="font-semibold text-slate-700">{selectedItem.supplier}</span>
-                  </p>
+                {selectedItem.stokSekarang <= 0 ? (
+                  <span className="text-[10px] text-red-700 font-bold flex items-center gap-1 mt-0.5 sm:mt-1 bg-red-100 px-2 py-0.5 rounded-md border border-red-200">
+                    <AlertTriangle className="w-3 h-3 text-red-600 shrink-0" /> Stok Kosong (0)
+                  </span>
+                ) : selectedItem.stokSekarang < selectedItem.stokMin ? (
+                  <span className="text-[10px] text-amber-800 font-bold flex items-center gap-1 mt-0.5 sm:mt-1 bg-amber-100 px-2 py-0.5 rounded-md border border-amber-200">
+                    <AlertTriangle className="w-3 h-3 text-amber-600 shrink-0" /> Stok Menipis (&lt;{selectedItem.stokMin})
+                  </span>
+                ) : (
+                  <span className="text-[10px] text-emerald-800 font-bold flex items-center gap-1 mt-0.5 sm:mt-1 bg-emerald-100 px-2 py-0.5 rounded-md border border-emerald-200">
+                    <CheckCircle2 className="w-3 h-3 text-emerald-600 shrink-0" /> Stok Aman Tersedia
+                  </span>
                 )}
               </div>
-            </div>
-
-            {/* Current Stock Metrics Box */}
-            <div className="flex sm:flex-col items-center sm:items-end justify-between border-t sm:border-t-0 border-slate-200/60 pt-2 sm:pt-0">
-              <span className="text-[10px] text-slate-500 uppercase tracking-wider font-semibold">
-                Stok Saat Ini
-              </span>
-              <div className="flex items-center gap-1.5 mt-0.5">
-                <span className="text-base font-extrabold text-slate-900">
-                  {selectedItem.stokSekarang}
-                </span>
-                <span className="text-xs font-bold text-slate-600">
-                  {selectedItem.satuan}
-                </span>
-              </div>
-
-              {selectedItem.stokSekarang < selectedItem.stokMin ? (
-                <span className="text-[10px] text-red-600 font-bold flex items-center gap-1 mt-0.5">
-                  <AlertTriangle className="w-3 h-3" /> Stok Menipis (&lt;{selectedItem.stokMin})
-                </span>
-              ) : (
-                <span className="text-[10px] text-emerald-600 font-bold flex items-center gap-1 mt-0.5">
-                  <CheckCircle2 className="w-3 h-3" /> Stok Aman
-                </span>
-              )}
             </div>
           </div>
         </div>
       ) : (
-        <div className="p-4 bg-amber-50/60 border border-dashed border-amber-300 rounded-xl text-center text-xs text-amber-800 space-y-1">
-          <AlertTriangle className="w-5 h-5 mx-auto text-amber-500" />
-          <p className="font-bold">Belum ada barang yang dipilih</p>
-          <p className="text-[11px] text-amber-700">Silakan cari nama atau kode barang pada kolom pencarian di atas.</p>
+        <div className="p-5 bg-amber-50/70 border-2 border-dashed border-amber-300 rounded-2xl text-center text-xs text-amber-900 space-y-1.5">
+          <AlertTriangle className="w-6 h-6 mx-auto text-amber-500" />
+          <p className="font-extrabold text-sm text-amber-900">Belum Ada Barang yang Dipilih</p>
+          <p className="text-[11px] text-amber-700 max-w-md mx-auto">
+            Silakan ketik nama barang, kode, atau gunakan tombol <strong>"Jelajahi Katalog Lengkap"</strong> di atas untuk memilih barang persediaan.
+          </p>
         </div>
       )}
 

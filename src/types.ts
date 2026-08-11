@@ -42,10 +42,17 @@ export interface Unit {
   keterangan: string;
 }
 
+export type TipeSatuan = 'kemasan' | 'tunggal' | 'lembaran' | 'panjang' | 'volume' | 'lainnya';
+
 export interface Satuan {
   id: string;
   nama: string;
   keterangan: string;
+  tipe?: TipeSatuan;
+  faktorKonversi?: number; // Faktor pengali ke satuan terkecil/dasar (misal 1 Lusin = 12 Buah, 1 Rim = 500 Lembar, 1 Kotak = 10 Buah)
+  satuanDasar?: string; // Satuan dasar ekuivalen (misal: "Buah", "Lembar", "Meter", "Botol", "Tube", "Unit")
+  rekomendasiStokMin?: number; // Rekomendasi batas minimum stok yang proporsional untuk satuan ini (misal Lusin: 1-2, Rim: 2, Buah: 10)
+  rekomendasiStokMaks?: number; // Rekomendasi batas maksimum stok
 }
 
 export interface BarangMasuk {
@@ -59,6 +66,9 @@ export interface BarangMasuk {
   fileDokumen: string; // Filename or Drive URL
   fileData?: string; // Base64 or Object URL of uploaded document
   catatan: string;
+  isSusulan?: boolean; // Penanda apakah transaksi ini merupakan data susulan/backdated
+  keteranganSusulan?: string; // Alasan/keterangan pencatatan susulan
+  waktuInputSistem?: string; // Timestamp saat admin menginput ke sistem
 }
 
 export interface BarangKeluar {
@@ -74,6 +84,9 @@ export interface BarangKeluar {
   fileDokumen?: string;
   fileData?: string;
   catatan: string;
+  isSusulan?: boolean; // Penanda apakah transaksi ini merupakan data susulan/backdated
+  keteranganSusulan?: string; // Alasan/keterangan pencatatan susulan
+  waktuInputSistem?: string; // Timestamp saat admin menginput ke sistem
 }
 
 export interface DriveFileItem {
