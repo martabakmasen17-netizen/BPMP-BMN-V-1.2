@@ -175,11 +175,11 @@ export default function LaporanView({
   };
 
   const executeBarangExportSpreadsheet = (data: Barang[], summaryText: string) => {
-    const headers = 'Kode Barang,Nama Barang,Kategori,Supplier,Satuan,Lokasi Rak,Stok Sekarang,Stok Minimum\n';
+    const headers = 'Kode Barang,Nama Barang,Kategori,Supplier,Satuan,Stok Sekarang,Stok Minimum\n';
     const rows = data
       .map(
         b =>
-          `"${b.id}","${b.nama}","${b.kategori}","${b.supplier}","${b.satuan}","${b.lokasiRak}",${b.stokSekarang},${b.stokMin}`
+          `"${b.id}","${b.nama}","${b.kategori}","${b.supplier}","${b.satuan}",${b.stokSekarang},${b.stokMin}`
       )
       .join('\n');
     const csvContent = 'data:text/csv;charset=utf-8,' + encodeURIComponent(headers + rows);
@@ -294,7 +294,7 @@ export default function LaporanView({
                   Laporan Rekapitulasi Persediaan (Katalog BMN)
                 </h4>
                 <p className="text-xs text-gray-500 leading-relaxed">
-                  Laporan komprehensif berisi kode barang, nama barang, lokasi rak, volume sisa stok saat ini, dan satuan kuantitas persediaan BPMP Sumsel.
+                  Laporan komprehensif berisi kode barang, nama barang, volume sisa stok saat ini, dan satuan kuantitas persediaan BPMP Sumsel.
                 </p>
               </div>
               <div className="flex flex-wrap gap-2 pt-4 border-t border-gray-100">

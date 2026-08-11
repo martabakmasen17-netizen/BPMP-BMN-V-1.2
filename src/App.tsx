@@ -530,7 +530,6 @@ const handler = setTimeout(async () => {
               nama,
               supplier: row.supplier || 'PT Internal',
               satuan: row.satuan || 'Buah',
-              lokasiRak: row.lokasiRak || 'Rak A',
               stokSekarang: Number(row.stokSekarang) || 0,
               stokMin: Number(row.stokMin) || 0,
               stokMaks: Number(row.stokMaks) || 100,

@@ -558,7 +558,7 @@ export default function DashboardCharts({
                 <div key={item.id} className="bg-white p-2.5 rounded-xl border border-blue-100 shadow-2xs flex items-center justify-between text-xs">
                   <div className="min-w-0 pr-2">
                     <span className="font-bold text-gray-900 block truncate">{item.nama}</span>
-                    <span className="text-[10px] text-gray-400 font-mono">ID: {item.id} • Rak: {item.lokasiRak || '-'}</span>
+                    <span className="text-[10px] text-gray-400 font-mono">ID: {item.id}</span>
                   </div>
                   <div className="text-right shrink-0">
                     <span className={`px-2 py-0.5 rounded text-[10px] font-bold block ${

@@ -338,10 +338,6 @@ export default function DashboardView({
                     <span>Stok Tersedia: </span>
                     <span className="font-bold text-gray-900">{selectedItem.stokSekarang} {selectedItem.satuan}</span>
                   </div>
-                  <div>
-                    <span>Lokasi Rak: </span>
-                    <span className="font-bold text-gray-900">{selectedItem.lokasiRak || '-'}</span>
-                  </div>
                 </div>
               )}
 
@@ -698,7 +694,7 @@ export default function DashboardView({
                   <div key={item.id} className="p-3.5 bg-[#F8FAFC] border border-[#E5E7EB] rounded-xl flex items-center justify-between gap-3 text-xs hover:border-blue-300 transition-colors">
                     <div className="min-w-0 flex-1">
                       <p className="font-bold text-[#111827] truncate">{item.nama}</p>
-                      <p className="text-[10px] text-[#6B7280] mt-0.5">{item.kategori} • Rak: {item.lokasiRak}</p>
+                      <p className="text-[10px] text-[#6B7280] mt-0.5">{item.kategori}</p>
                       
                       <div className="flex flex-wrap items-center gap-1.5 mt-2">
                         <span className={`px-2 py-0.5 rounded-md text-[10px] font-extrabold ${

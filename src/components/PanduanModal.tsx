@@ -89,10 +89,10 @@ const GUIDE_ITEMS: GuideItem[] = [
       'Buka menu "Data Master" > "Data Barang" di sidebar navigasi.',
       'Klik tombol "Tambah Barang Baru" untuk membuka formulir pendaftaran barang.',
       'Pilih Kategori Barang. Kode ID Barang akan digenerate otomatis secara terstruktur (contoh: 1010301001-000001).',
-      'Isi Nama Barang, Satuan, Lokasi Rak/Gudang, Supplier, serta Batas Stok Minimal & Maksimal.',
+      'Isi Nama Barang, Satuan, Supplier, serta Batas Stok Minimal & Maksimal.',
       'Unggah Foto Barang atau gunakan gambar default untuk identifikasi visual.',
       'Gunakan fitur "Import CSV/Excel" jika ingin memasukkan banyak data barang sekaligus dari spreadsheet.',
-      'Gunakan tombol "Cetak QR Code" pada tiap baris barang untuk menempelkan stiker identitas di lokasi rak fisik.'
+      'Gunakan tombol "Cetak QR Code" pada tiap baris barang untuk menempelkan stiker identitas fisik.'
     ],
     tips: [
       'Batas Stok Minimal akan memicu pemberitahuan peringatan saat persediaan mulai menipis.',
@@ -167,7 +167,7 @@ const GUIDE_ITEMS: GuideItem[] = [
     steps: [
       'Setiap data barang memiliki kode unik yang dipetakan ke QR Code.',
       'Di menu Data Barang, klik ikon QR Code pada baris barang untuk melihat & mencetak QR Code.',
-      'Tempelkan cetakan QR Code pada kemasan atau lokasi rak simpan fisik.',
+      'Tempelkan cetakan QR Code pada kemasan simpan fisik.',
       'Saat input Barang Masuk / Keluar, klik tombol "Scan QR Code" berikon kamera.',
       'Berikan izin kamera browser, lalu arahkan kamera ke kode QR barang.',
       'Sistem akan otomatis mengenali barang dan mengisikan data item ke formulir transaksi.'

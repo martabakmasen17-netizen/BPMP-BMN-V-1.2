@@ -201,9 +201,11 @@ export default function LoginView({ accounts, onLoginSuccess, onRegisterAccount,
           <h1 className="text-2xl font-black text-white tracking-tight flex items-center gap-2 justify-center">
             SILAP BMN
           </h1>
-          <p className="text-xs text-slate-400 mt-1 max-w-[300px] leading-relaxed">
-            Sistem Informasi Logistik & Alat Persediaan Barang Milik Negara - BPMP
-          </p>
+          <div className="text-xs text-slate-400 mt-2 leading-snug text-center flex flex-col items-center gap-0.5">
+            <span className="block whitespace-nowrap text-[11px] sm:text-xs">Sistem Informasi Logistik & Alat Persediaan Barang Milik Negara</span>
+            <span className="block">Balai Penjaminan Mutu Pendidikan</span>
+            <span className="block">Provinsi Sumatera Selatan</span>
+          </div>
         </div>
 
         {/* Form Selection Tab */}

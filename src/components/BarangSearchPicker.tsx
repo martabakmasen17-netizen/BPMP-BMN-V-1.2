@@ -89,16 +89,15 @@ export default function BarangSearchPicker({
         if (!matchesCategory) return false;
       }
 
-      // Query match (searches ID, Name, Category, Rak, Supplier)
+      // Query match (searches ID, Name, Category, Supplier)
       if (!searchQuery.trim()) return true;
       const q = searchQuery.toLowerCase().trim();
       const matchId = item.id?.toLowerCase().includes(q);
       const matchName = item.nama?.toLowerCase().includes(q);
       const matchCat = item.kategori?.toLowerCase().includes(q);
-      const matchRak = item.lokasiRak?.toLowerCase().includes(q);
       const matchSupplier = item.supplier?.toLowerCase().includes(q);
 
-      return matchId || matchName || matchCat || matchRak || matchSupplier;
+      return matchId || matchName || matchCat || matchSupplier;
     });
   }, [barangList, selectedCategoryFilter, searchQuery]);
 
@@ -198,8 +197,7 @@ export default function BarangSearchPicker({
       return (
         item.id.toLowerCase().includes(q) ||
         item.nama.toLowerCase().includes(q) ||
-        item.kategori.toLowerCase().includes(q) ||
-        (item.lokasiRak && item.lokasiRak.toLowerCase().includes(q))
+        item.kategori.toLowerCase().includes(q)
       );
     });
   }, [barangList, catalogCategoryFilter, catalogSearch]);
@@ -475,12 +473,6 @@ export default function BarangSearchPicker({
                             <span className="text-[10px] font-semibold px-1.5 py-0.2 bg-indigo-50 text-indigo-700 rounded border border-indigo-100">
                               {item.kategori}
                             </span>
-                            {item.lokasiRak && (
-                              <span className="text-[10px] text-slate-500 flex items-center gap-0.5">
-                                <MapPin className="w-2.5 h-2.5 text-slate-400" />
-                                {item.lokasiRak}
-                              </span>
-                            )}
                           </div>
 
                           <p className="text-xs font-bold text-slate-900 mt-0.5 truncate">
@@ -601,10 +593,6 @@ export default function BarangSearchPicker({
                     <span className="text-[10px] font-bold px-2 py-0.5 bg-indigo-100 text-indigo-800 rounded-md border border-indigo-200 truncate max-w-[120px]">
                       {selectedItem.kategori}
                     </span>
-                    <span className="text-[10px] font-medium text-slate-700 bg-white px-2 py-0.5 rounded-md border border-slate-200 flex items-center gap-1 shadow-2xs">
-                      <MapPin className="w-3 h-3 text-slate-400 shrink-0" />
-                      <span className="truncate max-w-[110px]">{selectedItem.lokasiRak || 'Gudang Utama'}</span>
-                    </span>
                   </div>
 
                   <h4 className="text-sm sm:text-base font-extrabold text-slate-900 mt-1 leading-snug break-words">
@@ -697,7 +685,7 @@ export default function BarangSearchPicker({
                   <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
                   <input
                     type="text"
-                    placeholder="Cari kode, nama barang, rak, atau spesifikasi..."
+                    placeholder="Cari kode, nama barang, atau spesifikasi..."
                     value={catalogSearch}
                     onChange={e => setCatalogSearch(e.target.value)}
                     className="w-full pl-9 pr-3 py-2 bg-white border border-slate-200 rounded-xl text-xs focus:ring-2 focus:ring-indigo-500 focus:outline-none"
@@ -777,7 +765,6 @@ export default function BarangSearchPicker({
                             </h5>
                             <p className="text-[10px] text-slate-500 mt-0.5">
                               Stok: <strong className={isLowStock ? 'text-amber-700' : 'text-slate-800'}>{item.stokSekarang} {item.satuan}</strong>
-                              {item.lokasiRak && ` • 📍 ${item.lokasiRak}`}
                             </p>
                           </div>
                         </div>

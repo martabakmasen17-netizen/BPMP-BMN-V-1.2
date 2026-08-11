@@ -10,7 +10,6 @@ export interface Barang {
   nama: string;
   supplier: string;
   satuan: string;
-  lokasiRak: string;
   stokSekarang: number;
   stokMin: number;
   stokMaks: number;

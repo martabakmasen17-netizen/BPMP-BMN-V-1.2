@@ -77,11 +77,11 @@ export default function BarangView({
   const [activeItem, setActiveItem] = useState<Barang | null>(null);
 
   const executeExportSpreadsheet = (data: Barang[], summaryText: string) => {
-    const headers = 'Kode Barang,Nama Barang,Kategori,Supplier,Satuan,Lokasi Rak,Stok Sekarang,Stok Minimum\n';
+    const headers = 'Kode Barang,Nama Barang,Kategori,Supplier,Satuan,Stok Sekarang,Stok Minimum\n';
     const rows = data
       .map(
         b =>
-          `"${b.id}","${b.nama}","${b.kategori}","${b.supplier}","${b.satuan}","${b.lokasiRak}",${b.stokSekarang},${b.stokMin}`
+          `"${b.id}","${b.nama}","${b.kategori}","${b.supplier}","${b.satuan}",${b.stokSekarang},${b.stokMin}`
       )
       .join('\n');
     const csvContent = 'data:text/csv;charset=utf-8,' + encodeURIComponent(headers + rows);
@@ -102,7 +102,6 @@ export default function BarangView({
     nama: '',
     supplier: '',
     satuan: '',
-    lokasiRak: '',
     stokSekarang: 0,
     stokMin: 0,
     stokMaks: 50,
@@ -124,10 +123,9 @@ export default function BarangView({
     const matchesSearch =
       String(item.nama || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
       String(item.id || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
-      String(item.kategoriId || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
-      String(item.lokasiRak || '').toLowerCase().includes(searchTerm.toLowerCase());
+      String(item.kategoriId || '').toLowerCase().includes(searchTerm.toLowerCase());
 
-    const matchesCategory = selectedCategory ? item.kategori === selectedCategory : true;
+    const matchesCategory = selectedCategory ? (item.kategori === selectedCategory || item.kategoriId === selectedCategory) : true;
 
     let matchesStock = true;
     const evaluation = evaluateStockStatus(item, satuanList);
@@ -173,7 +171,6 @@ export default function BarangView({
       nama: '',
       supplier: supplierList[0]?.nama || '',
       satuan: defaultSatuan,
-      lokasiRak: 'Rak ATK - A1',
       stokSekarang: meta.rekomendasiStokMin * 2,
       stokMin: meta.rekomendasiStokMin,
       stokMaks: meta.rekomendasiStokMaks,
@@ -311,172 +308,179 @@ export default function BarangView({
 
   return (
     <div className="space-y-4">
-      {/* Search and Filters Bar */}
-      <div className="bg-white p-4 rounded-2xl border border-gray-200 shadow-sm flex flex-col md:flex-row gap-3 items-start md:items-center justify-between">
-        <div className="w-full flex-1 flex flex-col md:flex-row flex-wrap gap-2 md:items-center">
+      {/* Header & Filters Section */}
+      <div className="bg-white p-5 rounded-2xl border border-gray-200 shadow-sm space-y-4">
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+          <div>
+            <h2 className="text-lg font-extrabold text-slate-800">Direktori Barang Persediaan</h2>
+            <p className="text-xs text-slate-500 mt-1">Kelola data master BMN secara lengkap dan terpusat.</p>
+          </div>
+          {/* Create Action */}
+          <div className="w-full sm:w-auto flex flex-col sm:flex-row items-center gap-2">
+            <button
+              onClick={() => setShowExportModal(true)}
+              className="w-full sm:w-auto flex items-center justify-center gap-2 px-4 py-2.5 bg-white border border-gray-200 hover:bg-slate-50 text-slate-700 rounded-xl text-xs font-bold shadow-sm transition-all cursor-pointer"
+            >
+              <Download className="w-4 h-4 text-emerald-600" /> Ekspor (.csv)
+            </button>
+            {!isReadOnly && (
+              <>
+                {currentUserRole === 'Administrator' && (
+                  <button
+                    onClick={() => {
+                      const fileInput = document.createElement('input');
+                      fileInput.type = 'file';
+                      fileInput.accept = '.csv';
+                      fileInput.onchange = (e: any) => {
+                        const file = e.target.files[0];
+                        if (file) {
+                          onImportCsv && onImportCsv(file);
+                        }
+                      };
+                      fileInput.click();
+                    }}
+                    className="w-full sm:w-auto flex items-center justify-center gap-2 px-4 py-2.5 bg-white border border-gray-200 hover:bg-slate-50 text-slate-700 rounded-xl text-xs font-bold shadow-sm transition-all cursor-pointer"
+                  >
+                    <Upload className="w-4 h-4 text-blue-600" /> Import
+                  </button>
+                )}
+                <button
+                  onClick={handleOpenAdd}
+                  className="w-full sm:w-auto flex items-center justify-center gap-2 px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold shadow-sm transition-all cursor-pointer"
+                >
+                  <Plus className="w-4 h-4" /> Tambah Barang
+                </button>
+              </>
+            )}
+          </div>
+        </div>
+
+        <div className="flex flex-col md:flex-row gap-3 items-start md:items-center pt-4 border-t border-slate-100">
           {/* Search */}
-          <div className="relative w-full md:max-w-xs">
-            <Search className="w-4 h-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
+          <div className="relative w-full md:flex-1">
+            <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
             <input
               type="text"
-              placeholder="Cari nama, kode, lokasi rak..."
+              placeholder="Cari nama barang atau kode item..."
               value={searchTerm}
               onChange={e => setSearchTerm(e.target.value)}
-              className="w-full pl-9 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium focus:outline-none focus:ring-2 focus:ring-blue-600"
+              className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium focus:outline-none focus:ring-2 focus:ring-blue-600 focus:bg-white transition-colors"
             />
           </div>
 
           {/* Category Filter */}
-          <select
-            value={selectedCategory}
-            onChange={e => setSelectedCategory(e.target.value)}
-            className="w-full md:w-auto px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium focus:outline-none focus:ring-2 focus:ring-blue-600"
-          >
-            <option value="">Semua Kategori</option>
-            {kategoriList.map(cat => (
-              <option key={cat.id} value={cat.nama}>
-                {cat.nama}
-              </option>
-            ))}
-          </select>
+          <div className="w-full md:w-56 shrink-0 relative">
+            <FolderTree className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+            <select
+              value={selectedCategory}
+              onChange={e => setSelectedCategory(e.target.value)}
+              className="w-full pl-9 pr-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-600 appearance-none cursor-pointer focus:bg-white transition-colors"
+            >
+              <option value="">Semua Kategori</option>
+              {kategoriList.map(cat => (
+                <option key={cat.id} value={cat.nama}>
+                  {cat.nama}
+                </option>
+              ))}
+            </select>
+          </div>
 
           {/* Stock Filter */}
-          <select
-            value={stockFilter}
-            onChange={e => setStockFilter(e.target.value as any)}
-            className="w-full md:w-auto px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium focus:outline-none focus:ring-2 focus:ring-blue-600"
-          >
-            <option value="all">Semua Level Stok</option>
-            <option value="safe">Stok Aman</option>
-            <option value="low">Stok Menipis / Kritis</option>
-            <option value="empty">Stok Kosong</option>
-          </select>
-        </div>
-
-        {/* Create Action */}
-        <div className="w-full md:w-auto flex flex-col sm:flex-row items-center gap-2 mt-1 md:mt-0 pt-3 md:pt-0 border-t md:border-0 border-gray-100">
-          <button
-            onClick={() => setShowExportModal(true)}
-            className="w-full md:w-auto flex items-center justify-center gap-1.5 px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-bold shadow-sm transition-all cursor-pointer"
-          >
-            <Download className="w-4 h-4 text-green-400" /> Ekspor Data (.csv)
-          </button>
-          {!isReadOnly && (
-            <>
-              {currentUserRole === 'Administrator' && (
-                <button
-                  onClick={() => {
-                    const fileInput = document.createElement('input');
-                    fileInput.type = 'file';
-                    fileInput.accept = '.csv';
-                    fileInput.onchange = (e: any) => {
-                      const file = e.target.files[0];
-                      if (file) {
-                        onImportCsv && onImportCsv(file);
-                      }
-                    };
-                    fileInput.click();
-                  }}
-                  className="w-full md:w-auto flex items-center justify-center gap-1.5 px-4 py-2 bg-white border border-gray-200 hover:bg-slate-50 text-gray-700 rounded-xl text-xs font-bold shadow-sm transition-all cursor-pointer"
-                >
-                  <Upload className="w-4 h-4" /> Import CSV
-                </button>
-              )}
-              <button
-                onClick={handleOpenAdd}
-                className="w-full md:w-auto flex items-center justify-center gap-1.5 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold shadow-sm transition-all cursor-pointer"
-              >
-                <Plus className="w-4 h-4" /> Tambah Barang
-              </button>
-            </>
-          )}
+          <div className="w-full md:w-48 shrink-0 relative">
+            <SlidersHorizontal className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+            <select
+              value={stockFilter}
+              onChange={e => setStockFilter(e.target.value as any)}
+              className="w-full pl-9 pr-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-600 appearance-none cursor-pointer focus:bg-white transition-colors"
+            >
+              <option value="all">Semua Level Stok</option>
+              <option value="safe">Stok Aman</option>
+              <option value="low">Stok Menipis / Kritis</option>
+              <option value="empty">Stok Kosong</option>
+            </select>
+          </div>
         </div>
       </div>
 
       {/* Responsive Grid/Table */}
       <div className="bg-white border border-gray-200 rounded-2xl shadow-sm overflow-hidden">
         <div className="overflow-x-auto">
-          <table className="w-full text-left border-collapse text-xs">
+          <table className="w-full text-left border-collapse text-sm min-w-[800px]">
             <thead>
-              <tr className="bg-slate-50 border-b border-gray-100 text-gray-500 font-bold uppercase tracking-wider text-[10px]">
-                <th className="p-4">Visual</th>
-                <th className="p-4">Kode Barang</th>
-                <th className="p-4">Nama Barang</th>
-                <th className="p-4">Kategori / Supplier</th>
-                <th className="p-4">Rak</th>
-                <th className="p-4 text-center">Status Stok</th>
-                <th className="p-4 text-center">Aksi</th>
+              <tr className="bg-slate-50 border-b border-gray-100 text-slate-500 font-bold uppercase tracking-wider text-[11px]">
+                <th className="p-4 w-20 text-center">Visual</th>
+                <th className="p-4 min-w-[250px]">Identifikasi BMN</th>
+                <th className="p-4 min-w-[200px]">Kategori & Supplier</th>
+                <th className="p-4 text-center w-48">Status Stok</th>
+                <th className="p-4 text-center w-28">Aksi</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-100 font-medium">
+            <tbody className="divide-y divide-gray-100">
               {paginatedBarang.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="p-12 text-center text-gray-400">
-                    <div className="flex flex-col items-center gap-2">
-                      <PackageCheck className="w-10 h-10 text-gray-300" />
-                      <span>Tidak ada item barang persediaan ditemukan</span>
+                  <td colSpan={5} className="p-16 text-center text-slate-400">
+                    <div className="flex flex-col items-center gap-3">
+                      <div className="w-16 h-16 bg-slate-50 rounded-full flex items-center justify-center border border-slate-100">
+                        <PackageCheck className="w-8 h-8 text-slate-300" />
+                      </div>
+                      <span className="font-medium text-sm">Tidak ada item barang persediaan ditemukan</span>
                     </div>
                   </td>
                 </tr>
               ) : (
                 paginatedBarang.map((item, idx) => (
-                  <tr key={`${item.id}_${item.kategoriId || ''}_${idx}`} className="hover:bg-slate-50/50 transition-colors">
-                    <td className="p-4">
+                  <tr key={`${item.id}_${item.kategoriId || ''}_${idx}`} className="hover:bg-blue-50/50 even:bg-slate-50/50 transition-colors group">
+                    <td className="p-4 align-top">
                       <img
                         src={item.imageUrl}
                         alt={item.nama}
                         referrerPolicy="no-referrer"
-                        className="w-10 h-10 rounded-lg object-cover bg-gray-100 border border-gray-200 flex-shrink-0"
+                        className="w-12 h-12 rounded-xl object-cover bg-gray-50 border border-gray-200 flex-shrink-0 shadow-sm"
                       />
                     </td>
-                    <td className="p-4">
-                      <div className="flex flex-col gap-1 mt-1">
-                        <span className="text-gray-500 text-xs font-medium bg-gray-100 px-2 py-1 rounded w-fit inline-flex items-center gap-1">
-                          <Tag className="w-3 h-3" />
-                          Kode: <strong className="text-gray-700 tracking-wide font-mono">{item.id.replace('-', '.')}</strong>
-                        </span>
+                    <td className="p-4 max-w-[220px] align-top">
+                      <div className="flex flex-col gap-1.5">
+                        <div className="font-bold text-slate-900 leading-tight" title={item.nama}>
+                          {item.nama}
+                        </div>
+                        <div className="flex flex-wrap items-center gap-2">
+                          <span className="text-slate-500 text-[10px] font-bold bg-slate-100 px-2 py-0.5 rounded flex items-center gap-1 shadow-sm">
+                            <Tag className="w-3 h-3" />
+                            {item.id.replace('-', '.')}
+                          </span>
+                          <span className="text-slate-500 text-[10px] font-medium bg-slate-50 border border-slate-200 px-2 py-0.5 rounded">
+                            {item.satuan}
+                          </span>
+                          {(() => {
+                            const equiv = getEquivalentBaseStock(Number(item.stokSekarang) || 0, item.satuan, satuanList);
+                            if (equiv.isMultiUnit) {
+                              return (
+                                <span className="text-blue-600 bg-blue-50 px-1.5 py-0.5 rounded text-[9px] font-bold border border-blue-200">
+                                  1 {item.satuan} = {equiv.faktorKonversi} {equiv.baseSatuan}
+                                </span>
+                              );
+                            }
+                            return null;
+                          })()}
+                        </div>
                       </div>
                     </td>
-                    <td className="p-4 max-w-[220px]">
-                      <div className="font-bold text-gray-900 truncate" title={item.nama}>
-                        {item.nama}
-                      </div>
-                      <div className="text-[10px] text-gray-500 font-medium mt-0.5 flex flex-wrap items-center gap-1.5">
-                        <span>Satuan: <strong className="text-gray-700">{item.satuan}</strong></span>
-                        {(() => {
-                          const equiv = getEquivalentBaseStock(Number(item.stokSekarang) || 0, item.satuan, satuanList);
-                          if (equiv.isMultiUnit) {
-                            return (
-                              <span className="text-blue-600 bg-blue-50 px-1.5 py-0.2 rounded text-[9px] font-bold border border-blue-200">
-                                1 {item.satuan} = {equiv.faktorKonversi} {equiv.baseSatuan}
-                              </span>
-                            );
-                          }
-                          return null;
-                        })()}
+                    <td className="p-4 align-top">
+                      <div className="flex flex-col gap-1">
+                        <div className="text-slate-700 font-medium text-xs truncate max-w-[180px]">{item.kategori}</div>
+                        <div className="text-[10px] font-bold text-slate-400 truncate max-w-[180px] flex items-center gap-1">
+                          {item.supplier}
+                        </div>
                       </div>
                     </td>
-                    <td className="p-4">
-                      <div className="text-gray-700 truncate max-w-[150px]">{item.kategori}</div>
-                      <div className="text-[10px] text-gray-400 truncate max-w-[150px] mt-0.5">
-                        {item.supplier}
-                      </div>
-                    </td>
-                    <td className="p-4 max-w-[100px] sm:max-w-[140px]">
-                      <div className="flex items-center">
-                        <span className="text-slate-600 font-bold bg-slate-50 border border-slate-200 px-2 py-1 rounded-md text-[10px] truncate w-full shadow-2xs" title={item.lokasiRak}>
-                          {item.lokasiRak}
-                        </span>
-                      </div>
-                    </td>
-                    <td className="p-4 text-center">
+                    <td className="p-4 text-center align-top">
                       {getStockStatusBadge(item)}
                     </td>
-                    <td className="p-4">
-                      <div className="flex items-center justify-center gap-1.5">
+                    <td className="p-4 align-top">
+                      <div className="flex items-center justify-center gap-1 opacity-100 md:opacity-0 group-hover:opacity-100 transition-opacity">
                         <button
                           onClick={() => handleOpenDetail(item)}
-                          className="p-1.5 hover:bg-slate-100 rounded-lg text-blue-600 cursor-pointer"
+                          className="p-2 hover:bg-blue-50 rounded-lg text-blue-600 cursor-pointer transition-colors"
                           title="Detail / QR"
                         >
                           <Eye className="w-4 h-4" />
@@ -485,14 +489,14 @@ export default function BarangView({
                           <>
                             <button
                               onClick={() => handleOpenEdit(item)}
-                              className="p-1.5 hover:bg-slate-100 rounded-lg text-amber-600 cursor-pointer"
+                              className="p-2 hover:bg-amber-50 rounded-lg text-amber-600 cursor-pointer transition-colors"
                               title="Edit"
                             >
                               <Edit2 className="w-4 h-4" />
                             </button>
                             <button
                               onClick={() => handleOpenDelete(item)}
-                              className="p-1.5 hover:bg-red-50 rounded-lg text-red-600 cursor-pointer"
+                              className="p-2 hover:bg-red-50 rounded-lg text-red-600 cursor-pointer transition-colors"
                               title="Hapus"
                             >
                               <Trash2 className="w-4 h-4" />
@@ -635,10 +639,6 @@ export default function BarangView({
                         )}
                       </div>
                       <div>
-                        <span className="text-gray-400 block">Lokasi Rak</span>
-                        <span className="font-bold text-gray-900 block mt-0.5">{activeItem.lokasiRak}</span>
-                      </div>
-                      <div>
                         <span className="text-gray-400 block">Supplier</span>
                         <span className="font-bold text-gray-900 block mt-0.5 truncate">{activeItem.supplier}</span>
                       </div>
@@ -688,201 +688,213 @@ export default function BarangView({
               </button>
             </div>
             <form onSubmit={handleAddSubmit} className="flex-1 flex flex-col overflow-hidden">
-              <div className="flex-1 overflow-y-auto p-5 space-y-4 text-xs font-medium text-gray-700 max-h-[60vh]">
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  {/* Nama */}
-                  <div className="sm:col-span-2 space-y-1">
-                    <label className="block text-gray-500">Nama Barang *</label>
-                    <input
-                      type="text"
-                      required
-                      placeholder="Contoh: Kertas HVS A4 80gr"
-                      value={formData.nama}
-                      onChange={e => setFormData({ ...formData, nama: e.target.value })}
-                      className="w-full px-3 py-2 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-600 focus:outline-none"
-                    />
-                  </div>
+              <div className="flex-1 overflow-y-auto p-5 text-xs font-medium text-gray-700 max-h-[70vh]">
+                <div className="space-y-6">
+                  {/* Bagian Identifikasi */}
+                  <div>
+                    <h4 className="font-bold text-slate-800 text-[11px] uppercase tracking-wider mb-3 flex items-center gap-2">
+                      <Tag className="w-4 h-4 text-slate-400" />
+                      1. Identifikasi BMN
+                    </h4>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      {/* Nama */}
+                      <div className="sm:col-span-2 space-y-1.5">
+                        <label className="block text-slate-500 font-bold">Nama Barang *</label>
+                        <input
+                          type="text"
+                          required
+                          placeholder="Contoh: Kertas HVS A4 80gr"
+                          value={formData.nama}
+                          onChange={e => setFormData({ ...formData, nama: e.target.value })}
+                          className="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-600 focus:outline-none focus:bg-white transition-colors"
+                        />
+                      </div>
 
-                {/* Kategori */}
-                <div className="space-y-1">
-                  <label className="block text-gray-500">Kategori Barang *</label>
-                  <select
-                    value={formData.kategoriId}
-                    onChange={e => handleKategoriChangeInAdd(e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-600 focus:outline-none font-medium"
-                  >
-                    {kategoriList.map(cat => (
-                      <option key={cat.id} value={cat.id}>
-                        {cat.id} - {cat.nama}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                {/* Manual Kode Barang */}
-                <div className="space-y-1">
-                  <label className="block text-gray-500">Kode Barang (6 Angka) *</label>
-                  <div className="flex rounded-xl overflow-hidden shadow-sm border focus-within:ring-2 focus-within:ring-blue-600 focus-within:border-blue-600 transition-colors">
-                    <span className="flex items-center px-3 bg-slate-100 text-slate-500 border-r border-gray-200 font-mono text-sm">
-                      {formData.kategoriId}-
-                    </span>
-                    <input
-                      type="text"
-                      maxLength={6}
-                      required
-                      value={formData.id}
-                      onChange={e => setFormData({ ...formData, id: e.target.value.replace(/\D/g, '') })}
-                      className="w-full px-3 py-2 outline-none font-mono font-bold text-gray-900"
-                      placeholder="000001"
-                    />
-                  </div>
-                  {formData.id && !isCodeValidFormat && (
-                    <p className="text-red-500 text-[10px] font-bold mt-1">Kode harus persis 6 angka.</p>
-                  )}
-                  {isCodeDuplicate && (
-                    <p className="text-red-500 text-[10px] font-bold mt-1">Kode sudah digunakan di kategori ini!</p>
-                  )}
-                </div>
-
-                {/* Supplier */}
-                <div className="space-y-1">
-                  <label className="block text-gray-500">Supplier *</label>
-                  <select
-                    value={formData.supplier}
-                    onChange={e => setFormData({ ...formData, supplier: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-600 focus:outline-none"
-                  >
-                    {supplierList.map(s => (
-                      <option key={s.id} value={s.nama}>
-                        {s.nama}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                {/* Satuan */}
-                <div className="space-y-1 sm:col-span-2">
-                  <div className="flex items-center justify-between">
-                    <label className="block text-gray-500">Satuan Pengukuran *</label>
-                    {(() => {
-                      const meta = getSatuanMetadata(formData.satuan, satuanList);
-                      return (
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setFormData(prev => ({
-                              ...prev,
-                              stokMin: meta.rekomendasiStokMin,
-                              stokMaks: meta.rekomendasiStokMaks
-                            }));
-                          }}
-                          className="text-[10px] text-blue-600 hover:text-blue-700 font-bold underline cursor-pointer"
+                      {/* Kategori */}
+                      <div className="space-y-1.5">
+                        <label className="block text-slate-500 font-bold">Kategori Barang *</label>
+                        <select
+                          value={formData.kategoriId}
+                          onChange={e => handleKategoriChangeInAdd(e.target.value)}
+                          className="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-600 focus:outline-none focus:bg-white transition-colors"
                         >
-                          Gunakan Standar Satuan ({meta.rekomendasiStokMin} {meta.nama})
-                        </button>
-                      );
-                    })()}
-                  </div>
-                  <select
-                    value={formData.satuan}
-                    onChange={e => {
-                      const newSatuan = e.target.value;
-                      const meta = getSatuanMetadata(newSatuan, satuanList);
-                      setFormData(prev => ({
-                        ...prev,
-                        satuan: newSatuan,
-                        stokMin: meta.rekomendasiStokMin,
-                        stokMaks: meta.rekomendasiStokMaks
-                      }));
-                    }}
-                    className="w-full px-3 py-2 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-600 focus:outline-none font-bold text-gray-800"
-                  >
-                    {satuanList.map(st => (
-                      <option key={st.id} value={st.nama}>
-                        {st.nama} {st.faktorKonversi && st.faktorKonversi > 1 ? `(1 ${st.nama} = ${st.faktorKonversi} ${st.satuanDasar})` : ''}
-                      </option>
-                    ))}
-                  </select>
+                          {kategoriList.map(cat => (
+                            <option key={cat.id} value={cat.id}>
+                              {cat.id} - {cat.nama}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
 
-                  {(() => {
-                    const meta = getSatuanMetadata(formData.satuan, satuanList);
-                    return (
-                      <div className="bg-blue-50/80 p-2.5 rounded-xl border border-blue-200/70 text-[11px] text-blue-900 mt-1 flex items-start gap-2">
-                        <Sparkles className="w-3.5 h-3.5 text-blue-600 flex-shrink-0 mt-0.5" />
-                        <div>
-                          <p className="font-bold">
-                            {meta.isMultiUnit ? `Satuan Kemasan Grosir: 1 ${meta.nama} = ${meta.faktorKonversi} ${meta.satuanDasar}` : `Satuan Eceran Tunggal: 1 ${meta.nama}`}
-                          </p>
-                          <p className="text-blue-700 mt-0.5">
-                            Rekomendasi Batas Min: <strong>{meta.rekomendasiStokMin} {meta.nama}</strong> {meta.isMultiUnit ? `(setara ${meta.rekomendasiStokMin * meta.faktorKonversi} ${meta.satuanDasar})` : ''} • Batas Maks: <strong>{meta.rekomendasiStokMaks} {meta.nama}</strong>
-                          </p>
+                      {/* Manual Kode Barang */}
+                      <div className="space-y-1.5">
+                        <label className="block text-slate-500 font-bold">Kode Item (6 Angka) *</label>
+                        <div className="flex rounded-xl overflow-hidden shadow-sm border border-slate-200 focus-within:ring-2 focus-within:ring-blue-600 focus-within:border-blue-600 transition-colors bg-white">
+                          <span className="flex items-center px-3 bg-slate-50 text-slate-500 border-r border-slate-200 font-mono text-xs">
+                            {formData.kategoriId}-
+                          </span>
+                          <input
+                            type="text"
+                            maxLength={6}
+                            required
+                            value={formData.id}
+                            onChange={e => setFormData({ ...formData, id: e.target.value.replace(/\D/g, '') })}
+                            className="w-full px-3 py-2.5 outline-none font-mono font-bold text-slate-900 bg-transparent"
+                            placeholder="000001"
+                          />
+                        </div>
+                        {formData.id && !isCodeValidFormat && (
+                          <p className="text-red-500 text-[10px] font-bold mt-1">Kode harus persis 6 angka.</p>
+                        )}
+                        {isCodeDuplicate && (
+                          <p className="text-red-500 text-[10px] font-bold mt-1">Kode sudah digunakan di kategori ini!</p>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="border-t border-slate-100"></div>
+
+                  {/* Bagian Manajemen Stok */}
+                  <div>
+                    <h4 className="font-bold text-slate-800 text-[11px] uppercase tracking-wider mb-3 flex items-center gap-2">
+                      <SlidersHorizontal className="w-4 h-4 text-slate-400" />
+                      2. Pengaturan Persediaan & Satuan
+                    </h4>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      {/* Supplier */}
+                      <div className="space-y-1.5 sm:col-span-2">
+                        <label className="block text-slate-500 font-bold">Supplier Default *</label>
+                        <select
+                          value={formData.supplier}
+                          onChange={e => setFormData({ ...formData, supplier: e.target.value })}
+                          className="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-600 focus:outline-none focus:bg-white transition-colors"
+                        >
+                          {supplierList.map(s => (
+                            <option key={s.id} value={s.nama}>
+                              {s.nama}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+
+                      {/* Satuan */}
+                      <div className="space-y-1.5 sm:col-span-2 bg-blue-50/50 p-4 rounded-xl border border-blue-100">
+                        <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center">
+                          <div className="flex-1 w-full">
+                            <label className="block text-blue-900 font-bold mb-1.5">Satuan Pengukuran Utama *</label>
+                            <select
+                              value={formData.satuan}
+                              onChange={e => {
+                                const newSatuan = e.target.value;
+                                const meta = getSatuanMetadata(newSatuan, satuanList);
+                                setFormData(prev => ({
+                                  ...prev,
+                                  satuan: newSatuan,
+                                  stokMin: meta.rekomendasiStokMin,
+                                  stokMaks: meta.rekomendasiStokMaks
+                                }));
+                              }}
+                              className="w-full px-3 py-2.5 bg-white border border-blue-200 rounded-xl focus:ring-2 focus:ring-blue-600 focus:outline-none font-bold text-blue-900 transition-colors"
+                            >
+                              {satuanList.map(st => (
+                                <option key={st.id} value={st.nama}>
+                                  {st.nama} {st.faktorKonversi && st.faktorKonversi > 1 ? `(1 ${st.nama} = ${st.faktorKonversi} ${st.satuanDasar})` : ''}
+                                </option>
+                              ))}
+                            </select>
+                          </div>
+                          
+                          <div className="flex-1 w-full text-[10px] text-blue-800 space-y-1">
+                            {(() => {
+                              const meta = getSatuanMetadata(formData.satuan, satuanList);
+                              return (
+                                <>
+                                  <div className="flex items-center gap-1.5 font-bold mb-2">
+                                    <Sparkles className="w-3.5 h-3.5 text-blue-600" />
+                                    {meta.isMultiUnit ? `Satuan Kemasan: 1 ${meta.nama} = ${meta.faktorKonversi} ${meta.satuanDasar}` : `Satuan Eceran Tunggal: 1 ${meta.nama}`}
+                                  </div>
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setFormData(prev => ({
+                                        ...prev,
+                                        stokMin: meta.rekomendasiStokMin,
+                                        stokMaks: meta.rekomendasiStokMaks
+                                      }));
+                                    }}
+                                    className="w-full py-2 bg-blue-100 hover:bg-blue-200 text-blue-700 font-bold rounded-lg transition-colors border border-blue-200 text-center cursor-pointer"
+                                  >
+                                    Terapkan Rekomendasi: Min {meta.rekomendasiStokMin} & Maks {meta.rekomendasiStokMaks}
+                                  </button>
+                                </>
+                              );
+                            })()}
+                          </div>
                         </div>
                       </div>
-                    );
-                  })()}
-                </div>
 
-                {/* Lokasi Rak */}
-                <div className="space-y-1">
-                  <label className="block text-gray-500">Lokasi Penempatan Rak *</label>
-                  <input
-                    type="text"
-                    required
-                    placeholder="Contoh: Rak ATK - A1"
-                    value={formData.lokasiRak}
-                    onChange={e => setFormData({ ...formData, lokasiRak: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-600 focus:outline-none"
-                  />
-                </div>
+                      {/* Stok Sekarang */}
+                      <div className="space-y-1.5">
+                        <label className="block text-slate-500 font-bold">Stok Awal Saat Ini *</label>
+                        <input
+                          type="number"
+                          min="0"
+                          required
+                          value={formData.stokSekarang}
+                          onChange={e => setFormData({ ...formData, stokSekarang: parseInt(e.target.value) || 0 })}
+                          className="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-600 focus:outline-none focus:bg-white transition-colors text-slate-900 font-bold"
+                        />
+                      </div>
 
-                {/* Stok Sekarang */}
-                <div className="space-y-1">
-                  <label className="block text-gray-500">Stok Awal Sekarang *</label>
-                  <input
-                    type="number"
-                    min="0"
-                    required
-                    value={formData.stokSekarang}
-                    onChange={e => setFormData({ ...formData, stokSekarang: parseInt(e.target.value) || 0 })}
-                    className="w-full px-3 py-2 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-600 focus:outline-none"
-                  />
-                </div>
+                      {/* Stok Min */}
+                      <div className="space-y-1.5">
+                        <label className="block text-slate-500 font-bold">Batas Stok Minimum *</label>
+                        <input
+                          type="number"
+                          min="0"
+                          required
+                          value={formData.stokMin}
+                          onChange={e => setFormData({ ...formData, stokMin: e.target.value === '' ? 0 : parseInt(e.target.value) || 0 })}
+                          className="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-600 focus:outline-none focus:bg-white transition-colors text-slate-900 font-bold"
+                        />
+                      </div>
+                    </div>
+                  </div>
 
-                {/* Stok Min */}
-                <div className="space-y-1">
-                  <label className="block text-gray-500">Batas Stok Minimum *</label>
-                  <input
-                    type="number"
-                    min="0"
-                    required
-                    value={formData.stokMin}
-                    onChange={e => setFormData({ ...formData, stokMin: e.target.value === '' ? 0 : parseInt(e.target.value) || 0 })}
-                    className="w-full px-3 py-2 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-600 focus:outline-none"
-                  />
-                </div>
+                  <div className="border-t border-slate-100"></div>
 
-                {/* Deskripsi */}
-                <div className="sm:col-span-2 space-y-1">
-                  <label className="block text-gray-500">Deskripsi / Spesifikasi Barang</label>
-                  <textarea
-                    rows={2}
-                    placeholder="Keterangan fisik, spesifikasi ukuran, berat atau merek barang..."
-                    value={formData.deskripsi}
-                    onChange={e => setFormData({ ...formData, deskripsi: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-600 focus:outline-none"
-                  />
-                </div>
+                  {/* Bagian Visual & Deskripsi */}
+                  <div>
+                    <h4 className="font-bold text-slate-800 text-[11px] uppercase tracking-wider mb-3 flex items-center gap-2">
+                      <Eye className="w-4 h-4 text-slate-400" />
+                      3. Visual & Keterangan Tambahan
+                    </h4>
+                    <div className="space-y-4">
+                      {/* Deskripsi */}
+                      <div className="space-y-1.5">
+                        <label className="block text-slate-500 font-bold">Deskripsi / Spesifikasi Khusus</label>
+                        <textarea
+                          rows={2}
+                          placeholder="Keterangan fisik, spesifikasi ukuran, berat atau merek barang..."
+                          value={formData.deskripsi}
+                          onChange={e => setFormData({ ...formData, deskripsi: e.target.value })}
+                          className="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-600 focus:outline-none focus:bg-white transition-colors"
+                        />
+                      </div>
 
-                {/* Image Picker */}
-                <div className="sm:col-span-2">
-                  <ImagePicker
-                    value={formData.imageUrl || ''}
-                    onChange={val => setFormData({ ...formData, imageUrl: val })}
-                    label="Foto / Gambar Barang BMN (Ambil Foto atau Pilih File)"
-                  />
+                      {/* Image Picker */}
+                      <div className="bg-slate-50 p-4 border border-slate-200 rounded-xl">
+                        <ImagePicker
+                          value={formData.imageUrl || ''}
+                          onChange={val => setFormData({ ...formData, imageUrl: val })}
+                          label="Foto / Gambar Barang BMN"
+                        />
+                      </div>
+                    </div>
+                  </div>
                 </div>
               </div>
-            </div>
 
             {/* Buttons */}
             <div className="flex gap-2 justify-end p-4 border-t border-gray-100 bg-slate-50 flex-shrink-0">
@@ -923,173 +935,188 @@ export default function BarangView({
               </button>
             </div>
             <form onSubmit={handleEditSubmit} className="flex-1 flex flex-col overflow-hidden">
-              <div className="flex-1 overflow-y-auto p-5 space-y-4 text-xs font-medium text-gray-700 max-h-[60vh]">
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  {/* Nama */}
-                  <div className="sm:col-span-2 space-y-1">
-                    <label className="block text-gray-500">Nama Barang *</label>
-                    <input
-                      type="text"
-                      required
-                      value={editFormData.nama}
-                      onChange={e => setEditFormData({ ...editFormData, nama: e.target.value })}
-                      className="w-full px-3 py-2 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-600 focus:outline-none"
-                    />
-                  </div>
+              <div className="flex-1 overflow-y-auto p-5 text-xs font-medium text-gray-700 max-h-[70vh]">
+                <div className="space-y-6">
+                  {/* Bagian Identifikasi */}
+                  <div>
+                    <h4 className="font-bold text-slate-800 text-[11px] uppercase tracking-wider mb-3 flex items-center gap-2">
+                      <Tag className="w-4 h-4 text-slate-400" />
+                      1. Identifikasi BMN
+                    </h4>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      {/* Nama */}
+                      <div className="sm:col-span-2 space-y-1.5">
+                        <label className="block text-slate-500 font-bold">Nama Barang *</label>
+                        <input
+                          type="text"
+                          required
+                          value={editFormData.nama}
+                          onChange={e => setEditFormData({ ...editFormData, nama: e.target.value })}
+                          className="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-600 focus:outline-none focus:bg-white transition-colors"
+                        />
+                      </div>
 
-                {/* Kategori */}
-                <div className="space-y-1">
-                  <label className="block text-gray-500">Kategori *</label>
-                  <select
-                    value={editFormData.kategori}
-                    disabled={true}
-                    className="w-full px-3 py-2 border border-gray-200 rounded-xl bg-slate-50 text-gray-500 cursor-not-allowed"
-                  >
-                    {kategoriList.map(cat => (
-                      <option key={cat.id} value={cat.nama}>
-                        {cat.id} - {cat.nama}
-                      </option>
-                    ))}
-                  </select>
-                  <p className="text-xs text-amber-600 mt-1 flex items-center gap-1">
-                    <AlertCircle className="w-3 h-3" />
-                    Kategori tidak dapat diubah setelah barang dibuat untuk menjaga konsistensi Kode Barang.
-                  </p>
-                </div>
-
-                {/* Supplier */}
-                <div className="space-y-1">
-                  <label className="block text-gray-500">Supplier *</label>
-                  <select
-                    value={editFormData.supplier}
-                    onChange={e => setEditFormData({ ...editFormData, supplier: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-600 focus:outline-none"
-                  >
-                    {supplierList.map(s => (
-                      <option key={s.id} value={s.nama}>
-                        {s.nama}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                {/* Satuan */}
-                <div className="space-y-1 sm:col-span-2">
-                  <div className="flex items-center justify-between">
-                    <label className="block text-gray-500">Satuan Pengukuran *</label>
-                    {(() => {
-                      const meta = getSatuanMetadata(editFormData.satuan || '', satuanList);
-                      return (
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setEditFormData(prev => ({
-                              ...prev,
-                              stokMin: meta.rekomendasiStokMin
-                            }));
-                          }}
-                          className="text-[10px] text-blue-600 hover:text-blue-700 font-bold underline cursor-pointer"
+                      {/* Kategori */}
+                      <div className="space-y-1.5 sm:col-span-2">
+                        <label className="block text-slate-500 font-bold">Kategori & Kode Item</label>
+                        <select
+                          value={editFormData.kategori}
+                          disabled={true}
+                          className="w-full px-3 py-2.5 bg-slate-100 border border-slate-200 rounded-xl text-slate-500 cursor-not-allowed font-medium"
                         >
-                          Gunakan Standar Satuan ({meta.rekomendasiStokMin} {meta.nama})
-                        </button>
-                      );
-                    })()}
+                          {kategoriList.map(cat => (
+                            <option key={cat.id} value={cat.nama}>
+                              {cat.id} - {cat.nama}
+                            </option>
+                          ))}
+                        </select>
+                        <p className="text-[10px] text-amber-600 mt-1.5 flex items-start gap-1.5 font-bold">
+                          <AlertCircle className="w-3.5 h-3.5 flex-shrink-0" />
+                          Kategori dan kode item terkunci untuk menjaga integritas dan riwayat pembukuan persediaan.
+                        </p>
+                      </div>
+                    </div>
                   </div>
-                  <select
-                    value={editFormData.satuan}
-                    onChange={e => {
-                      const newSatuan = e.target.value;
-                      const meta = getSatuanMetadata(newSatuan, satuanList);
-                      setEditFormData(prev => ({
-                        ...prev,
-                        satuan: newSatuan,
-                        stokMin: meta.rekomendasiStokMin
-                      }));
-                    }}
-                    className="w-full px-3 py-2 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-600 focus:outline-none font-bold text-gray-800"
-                  >
-                    {satuanList.map(st => (
-                      <option key={st.id} value={st.nama}>
-                        {st.nama} {st.faktorKonversi && st.faktorKonversi > 1 ? `(1 ${st.nama} = ${st.faktorKonversi} ${st.satuanDasar})` : ''}
-                      </option>
-                    ))}
-                  </select>
 
-                  {(() => {
-                    const meta = getSatuanMetadata(editFormData.satuan || '', satuanList);
-                    return (
-                      <div className="bg-blue-50/80 p-2.5 rounded-xl border border-blue-200/70 text-[11px] text-blue-900 mt-1 flex items-start gap-2">
-                        <Sparkles className="w-3.5 h-3.5 text-blue-600 flex-shrink-0 mt-0.5" />
-                        <div>
-                          <p className="font-bold">
-                            {meta.isMultiUnit ? `Satuan Kemasan Grosir: 1 ${meta.nama} = ${meta.faktorKonversi} ${meta.satuanDasar}` : `Satuan Eceran Tunggal: 1 ${meta.nama}`}
-                          </p>
-                          <p className="text-blue-700 mt-0.5">
-                            Rekomendasi Batas Min: <strong>{meta.rekomendasiStokMin} {meta.nama}</strong> {meta.isMultiUnit ? `(setara ${meta.rekomendasiStokMin * meta.faktorKonversi} ${meta.satuanDasar})` : ''}
-                          </p>
+                  <div className="border-t border-slate-100"></div>
+
+                  {/* Bagian Manajemen Stok */}
+                  <div>
+                    <h4 className="font-bold text-slate-800 text-[11px] uppercase tracking-wider mb-3 flex items-center gap-2">
+                      <SlidersHorizontal className="w-4 h-4 text-slate-400" />
+                      2. Pengaturan Persediaan & Satuan
+                    </h4>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      {/* Supplier */}
+                      <div className="space-y-1.5 sm:col-span-2">
+                        <label className="block text-slate-500 font-bold">Supplier Default *</label>
+                        <select
+                          value={editFormData.supplier}
+                          onChange={e => setEditFormData({ ...editFormData, supplier: e.target.value })}
+                          className="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-600 focus:outline-none focus:bg-white transition-colors"
+                        >
+                          {supplierList.map(s => (
+                            <option key={s.id} value={s.nama}>
+                              {s.nama}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+
+                      {/* Satuan */}
+                      <div className="space-y-1.5 sm:col-span-2 bg-blue-50/50 p-4 rounded-xl border border-blue-100">
+                        <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center">
+                          <div className="flex-1 w-full">
+                            <label className="block text-blue-900 font-bold mb-1.5">Satuan Pengukuran Utama *</label>
+                            <select
+                              value={editFormData.satuan}
+                              onChange={e => {
+                                const newSatuan = e.target.value;
+                                const meta = getSatuanMetadata(newSatuan, satuanList);
+                                setEditFormData(prev => ({
+                                  ...prev,
+                                  satuan: newSatuan,
+                                  stokMin: meta.rekomendasiStokMin
+                                }));
+                              }}
+                              className="w-full px-3 py-2.5 bg-white border border-blue-200 rounded-xl focus:ring-2 focus:ring-blue-600 focus:outline-none font-bold text-blue-900 transition-colors"
+                            >
+                              {satuanList.map(st => (
+                                <option key={st.id} value={st.nama}>
+                                  {st.nama} {st.faktorKonversi && st.faktorKonversi > 1 ? `(1 ${st.nama} = ${st.faktorKonversi} ${st.satuanDasar})` : ''}
+                                </option>
+                              ))}
+                            </select>
+                          </div>
+                          
+                          <div className="flex-1 w-full text-[10px] text-blue-800 space-y-1">
+                            {(() => {
+                              const meta = getSatuanMetadata(editFormData.satuan || '', satuanList);
+                              return (
+                                <>
+                                  <div className="flex items-center gap-1.5 font-bold mb-2">
+                                    <Sparkles className="w-3.5 h-3.5 text-blue-600" />
+                                    {meta.isMultiUnit ? `Satuan Kemasan: 1 ${meta.nama} = ${meta.faktorKonversi} ${meta.satuanDasar}` : `Satuan Eceran Tunggal: 1 ${meta.nama}`}
+                                  </div>
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setEditFormData(prev => ({
+                                        ...prev,
+                                        stokMin: meta.rekomendasiStokMin
+                                      }));
+                                    }}
+                                    className="w-full py-2 bg-blue-100 hover:bg-blue-200 text-blue-700 font-bold rounded-lg transition-colors border border-blue-200 text-center cursor-pointer"
+                                  >
+                                    Terapkan Rekomendasi: Min {meta.rekomendasiStokMin}
+                                  </button>
+                                </>
+                              );
+                            })()}
+                          </div>
                         </div>
                       </div>
-                    );
-                  })()}
-                </div>
 
-                {/* Lokasi Rak */}
-                <div className="space-y-1">
-                  <label className="block text-gray-500">Lokasi Penempatan Rak *</label>
-                  <input
-                    type="text"
-                    required
-                    value={editFormData.lokasiRak}
-                    onChange={e => setEditFormData({ ...editFormData, lokasiRak: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-600 focus:outline-none"
-                  />
-                </div>
+                      {/* Stok Sekarang (Readonly) */}
+                      <div className="space-y-1.5">
+                        <label className="block text-slate-500 font-bold">Stok Saat Ini (ReadOnly)</label>
+                        <input
+                          type="number"
+                          disabled
+                          value={editFormData.stokSekarang}
+                          className="w-full px-3 py-2.5 bg-slate-100 border border-slate-200 rounded-xl text-slate-400 font-bold cursor-not-allowed"
+                        />
+                        <p className="text-[9px] text-slate-400">Mutasi stok harus melalui menu Transaksi.</p>
+                      </div>
 
-                {/* Stok Sekarang */}
-                <div className="space-y-1">
-                  <label className="block text-gray-500">Stok Saat Ini (Hanya via Transaksi) *</label>
-                  <input
-                    type="number"
-                    disabled
-                    value={editFormData.stokSekarang}
-                    className="w-full px-3 py-2 border border-gray-200 rounded-xl bg-slate-50 text-gray-400"
-                  />
-                </div>
+                      {/* Stok Min */}
+                      <div className="space-y-1.5">
+                        <label className="block text-slate-500 font-bold">Batas Stok Minimum *</label>
+                        <input
+                          type="number"
+                          min="0"
+                          required
+                          value={editFormData.stokMin}
+                          onChange={e => setEditFormData({ ...editFormData, stokMin: e.target.value === '' ? 0 : parseInt(e.target.value) || 0 })}
+                          className="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-600 focus:outline-none focus:bg-white transition-colors text-slate-900 font-bold"
+                        />
+                      </div>
+                    </div>
+                  </div>
 
-                {/* Stok Min */}
-                <div className="space-y-1">
-                  <label className="block text-gray-500">Batas Stok Minimum *</label>
-                  <input
-                    type="number"
-                    min="0"
-                    required
-                    value={editFormData.stokMin}
-                    onChange={e => setEditFormData({ ...editFormData, stokMin: e.target.value === '' ? 0 : parseInt(e.target.value) || 0 })}
-                    className="w-full px-3 py-2 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-600 focus:outline-none"
-                  />
-                </div>
+                  <div className="border-t border-slate-100"></div>
 
-                {/* Deskripsi */}
-                <div className="sm:col-span-2 space-y-1">
-                  <label className="block text-gray-500">Deskripsi / Spesifikasi Barang</label>
-                  <textarea
-                    rows={2}
-                    value={editFormData.deskripsi}
-                    onChange={e => setEditFormData({ ...editFormData, deskripsi: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-600 focus:outline-none"
-                  />
-                </div>
+                  {/* Bagian Visual & Deskripsi */}
+                  <div>
+                    <h4 className="font-bold text-slate-800 text-[11px] uppercase tracking-wider mb-3 flex items-center gap-2">
+                      <Eye className="w-4 h-4 text-slate-400" />
+                      3. Visual & Keterangan Tambahan
+                    </h4>
+                    <div className="space-y-4">
+                      {/* Deskripsi */}
+                      <div className="space-y-1.5">
+                        <label className="block text-slate-500 font-bold">Deskripsi / Spesifikasi Khusus</label>
+                        <textarea
+                          rows={2}
+                          placeholder="Keterangan fisik, spesifikasi ukuran, berat atau merek barang..."
+                          value={editFormData.deskripsi}
+                          onChange={e => setEditFormData({ ...editFormData, deskripsi: e.target.value })}
+                          className="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-600 focus:outline-none focus:bg-white transition-colors"
+                        />
+                      </div>
 
-                {/* Image Picker */}
-                <div className="sm:col-span-2">
-                  <ImagePicker
-                    value={editFormData.imageUrl || ''}
-                    onChange={val => setEditFormData({ ...editFormData, imageUrl: val })}
-                    label="Foto / Gambar Barang BMN (Ambil Foto atau Pilih File)"
-                  />
+                      {/* Image Picker */}
+                      <div className="bg-slate-50 p-4 border border-slate-200 rounded-xl">
+                        <ImagePicker
+                          value={editFormData.imageUrl || ''}
+                          onChange={val => setEditFormData({ ...editFormData, imageUrl: val })}
+                          label="Ubah Foto / Gambar Barang BMN"
+                        />
+                      </div>
+                    </div>
+                  </div>
                 </div>
               </div>
-            </div>
 
             {/* Buttons */}
             <div className="flex gap-2 justify-end p-4 border-t border-gray-100 bg-slate-50 flex-shrink-0">
@@ -1141,7 +1168,6 @@ export default function BarangView({
           { label: 'Kategori BMN', value: formData.kategori },
           { label: 'Supplier / Rekanan', value: formData.supplier || '-' },
           { label: 'Satuan', value: formData.satuan },
-          { label: 'Lokasi Rak / Gudang', value: formData.lokasiRak },
           { label: 'Stok Awal', value: `${formData.stokSekarang} ${formData.satuan}` },
           { label: 'Batas Minimum', value: `${formData.stokMin} ${formData.satuan}` },
           { label: 'Batas Maksimum', value: `${formData.stokMaks} ${formData.satuan}` }
@@ -1166,8 +1192,7 @@ export default function BarangView({
           { label: 'Kode Barang', value: itemToDelete.id.replace('-', '.') },
           { label: 'Nama Barang', value: itemToDelete.nama },
           { label: 'Kategori BMN', value: itemToDelete.kategori },
-          { label: 'Sisa Stok Saat Ini', value: `${itemToDelete.stokSekarang} ${itemToDelete.satuan}` },
-          { label: 'Lokasi Rak', value: itemToDelete.lokasiRak }
+          { label: 'Sisa Stok Saat Ini', value: `${itemToDelete.stokSekarang} ${itemToDelete.satuan}` }
         ] : []}
       />
     </div>
