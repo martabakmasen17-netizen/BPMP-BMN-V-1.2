@@ -115,6 +115,8 @@ export default function PengaturanView({
       folderReportsId: settings.folderReportsId || '1dr_reports_bpmp_sumsel_folder',
       folderBackupId: settings.folderBackupId || '1dr_backup_bpmp_sumsel_folder',
       spreadsheetId: settings.spreadsheetId || '1ss_bpmp_sumsel_inventory_database',
+      serviceAccountEmail: settings.serviceAccountEmail || '',
+      serviceAccountPrivateKey: settings.serviceAccountPrivateKey || '',
       bilaStokRendahNotif: settings.bilaStokRendahNotif ?? true,
       bilaStokHabisNotif: settings.bilaStokHabisNotif ?? true,
       konfirmasiOtomatisKeluar: settings.konfirmasiOtomatisKeluar ?? true

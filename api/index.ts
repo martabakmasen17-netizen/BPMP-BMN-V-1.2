@@ -44,7 +44,12 @@ const loadFromLocalFile = () => {
 
 const getGoogleClients = () => {
   const localCache = memoryCache || loadFromLocalFile() || {};
-  const settings = Array.isArray(localCache.Settings) ? localCache.Settings[0] : {};
+  let settings = {};
+  if (Array.isArray(localCache.Settings) && localCache.Settings.length > 0) {
+    settings = localCache.Settings[0];
+  } else if (localCache.Settings && typeof localCache.Settings === 'object') {
+    settings = localCache.Settings;
+  }
   
   const clientEmail = settings?.serviceAccountEmail || process.env.GOOGLE_CLIENT_EMAIL;
   const privateKey = settings?.serviceAccountPrivateKey || process.env.GOOGLE_PRIVATE_KEY;
@@ -177,34 +182,30 @@ app.get("/api/sync/version", (req, res) => {
 app.get("/api/sync", async (req, res) => {
   try {
     const now = Date.now();
-    
-    // Always load local file as fallback baseline
     const localData = loadFromLocalFile();
     if (localData && !memoryCache) {
       memoryCache = localData;
     }
 
-    // 1. If in quota cooldown period or spreadsheet ID is missing, serve local memory/file data immediately
-    if (!SPREADSHEET_ID || now < rateLimitCooldownUntil) {
+    const dyn = getGoogleClients();
+    const currentSpreadsheetId = dyn.spreadsheetId || SPREADSHEET_ID;
+
+    if (!currentSpreadsheetId || !dyn.hasCredentials || !dyn.sheets || now < rateLimitCooldownUntil) {
       return res.json(memoryCache || localData || {});
     }
 
-    // 2. Serve from cache if available and force refresh was not requested
     if (memoryCache && req.query.force !== '1') {
       return res.json(memoryCache);
     }
 
-    // 3. Throttle remote calls (min 15 seconds interval even if force=1)
     if (memoryCache && (now - lastRemoteFetchTime < 15000)) {
       return res.json(memoryCache);
     }
 
-    // 4. Batch Fetch from Google Sheets API using batchGet (1 HTTP Call instead of 14)
     try {
-      // Get sheet list metadata if not cached
       if (!cachedExistingSheets) {
-        const spreadsheet = await sheets.spreadsheets.get({
-          spreadsheetId: SPREADSHEET_ID,
+        const spreadsheet = await dyn.sheets.spreadsheets.get({
+          spreadsheetId: currentSpreadsheetId,
         });
         cachedExistingSheets = spreadsheet.data.sheets?.map(s => s.properties?.title || "") || [];
       }
@@ -213,9 +214,8 @@ app.get("/api/sync", async (req, res) => {
       const allData: any = {};
 
       if (sheetsToFetch.length > 0) {
-        // Single Batch Call for all sheets combined
-        const batchResponse = await sheets.spreadsheets.values.batchGet({
-          spreadsheetId: SPREADSHEET_ID,
+        const batchResponse = await dyn.sheets.spreadsheets.values.batchGet({
+          spreadsheetId: currentSpreadsheetId,
           ranges: sheetsToFetch.map(s => `${s}!A1:Z`),
         });
 
@@ -273,12 +273,15 @@ app.post("/api/sync", async (req, res) => {
     saveToLocalFile(incomingData);
 
     const now = Date.now();
+    
+    const dyn = getGoogleClients();
+    const currentSpreadsheetId = dyn.spreadsheetId || SPREADSHEET_ID;
 
-    if (SPREADSHEET_ID && now >= rateLimitCooldownUntil) {
+    if (currentSpreadsheetId && dyn.hasCredentials && dyn.sheets && now >= rateLimitCooldownUntil) {
       try {
         if (!cachedExistingSheets) {
-          const spreadsheet = await sheets.spreadsheets.get({
-            spreadsheetId: SPREADSHEET_ID,
+          const spreadsheet = await dyn.sheets.spreadsheets.get({
+            spreadsheetId: currentSpreadsheetId,
           });
           cachedExistingSheets = spreadsheet.data.sheets?.map(s => s.properties?.title || "") || [];
         }
@@ -290,8 +293,8 @@ app.post("/api/sync", async (req, res) => {
           const requests = sheetsToCreate.map(title => ({
             addSheet: { properties: { title } }
           }));
-          await sheets.spreadsheets.batchUpdate({
-            spreadsheetId: SPREADSHEET_ID,
+          await dyn.sheets.spreadsheets.batchUpdate({
+            spreadsheetId: currentSpreadsheetId,
             requestBody: { requests }
           });
           cachedExistingSheets = [...existingSheets, ...sheetsToCreate];
@@ -320,15 +323,15 @@ app.post("/api/sync", async (req, res) => {
         }
 
         if (clearRanges.length > 0) {
-          await sheets.spreadsheets.values.batchClear({
-            spreadsheetId: SPREADSHEET_ID,
+          await dyn.sheets.spreadsheets.values.batchClear({
+            spreadsheetId: currentSpreadsheetId,
             requestBody: { ranges: clearRanges }
           });
         }
 
         if (dataUpdates.length > 0) {
-          await sheets.spreadsheets.values.batchUpdate({
-            spreadsheetId: SPREADSHEET_ID,
+          await dyn.sheets.spreadsheets.values.batchUpdate({
+            spreadsheetId: currentSpreadsheetId,
             requestBody: {
               valueInputOption: "USER_ENTERED",
               data: dataUpdates
