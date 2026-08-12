@@ -29,7 +29,9 @@ import {
   Wifi,
   Activity,
   Layers,
-  Server
+  Server,
+  Search,
+  Upload
 } from 'lucide-react';
 import { Settings, DriveFileItem, UserAccount } from '../types';
 
@@ -38,6 +40,8 @@ interface PengaturanViewProps {
   onSaveSettings: (s: Settings) => void;
   onResetDatabase: () => void;
   onSimulateBackup: () => void;
+  onUploadDriveFile?: (file: File, folder: 'Reports' | 'Images' | 'QRCode' | 'Backup' | 'Dokumen') => Promise<void>;
+  onDeleteDriveFile?: (id: string, name?: string) => Promise<void>;
   driveFiles?: DriveFileItem[];
   currentUserRole?: string;
   currentUser?: UserAccount;
@@ -54,6 +58,8 @@ export default function PengaturanView({
   onSaveSettings,
   onResetDatabase,
   onSimulateBackup,
+  onUploadDriveFile,
+  onDeleteDriveFile,
   driveFiles = [],
   currentUserRole,
   currentUser,
@@ -61,6 +67,11 @@ export default function PengaturanView({
 }: PengaturanViewProps) {
   // Access validation: check if logged-in user is Administrator
   const isAdmin = currentUserRole === 'Administrator' || currentUser?.role === 'Administrator' || currentUser?.username === 'admin';
+
+  const [searchDriveQuery, setSearchDriveQuery] = useState('');
+  const [filterDriveFolder, setFilterDriveFolder] = useState<string>('All');
+  const [isUploadingFile, setIsUploadingFile] = useState(false);
+  const [uploadNotice, setUploadNotice] = useState<string | null>(null);
 
   // State management for settings form
   const [formData, setFormData] = useState<Settings>({
@@ -772,6 +783,166 @@ export default function PengaturanView({
                     />
                   </div>
                 </div>
+              </div>
+            </div>
+
+            {/* GOOGLE DRIVE LIVE FILE MANAGER & UPLOAD CENTER */}
+            <div className="bg-white border border-gray-200 rounded-2xl p-6 shadow-xs space-y-5">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-gray-100 pb-4">
+                <div>
+                  <h3 className="text-sm font-bold text-gray-900 flex items-center gap-2">
+                    <Folder className="w-4.5 h-4.5 text-blue-600" /> Pengelola Berkas Google Drive & Cloud Storage
+                  </h3>
+                  <p className="text-xs text-gray-500 mt-0.5">
+                    Daftar dokumen surat jalan, faktur, cadangan JSON, dan media yang tersimpan di Google Drive.
+                  </p>
+                </div>
+
+                {/* Upload Button */}
+                {isAdmin && onUploadDriveFile && (
+                  <label className="inline-flex items-center justify-center gap-2 px-3.5 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-xl text-xs font-bold cursor-pointer transition-all shadow-xs shrink-0">
+                    <Upload className="w-4 h-4" />
+                    <span>{isUploadingFile ? 'Mengunggah...' : 'Unggah Berkas ke Drive'}</span>
+                    <input
+                      type="file"
+                      disabled={isUploadingFile}
+                      onChange={async (e) => {
+                        const file = e.target.files?.[0];
+                        if (file) {
+                          setIsUploadingFile(true);
+                          setUploadNotice(null);
+                          try {
+                            await onUploadDriveFile(file, 'Dokumen');
+                            setUploadNotice(`Berkas "${file.name}" berhasil diunggah ke Google Drive!`);
+                            setTimeout(() => setUploadNotice(null), 4000);
+                          } catch (err: any) {
+                            setUploadNotice(`Gagal unggah: ${err.message}`);
+                          } finally {
+                            setIsUploadingFile(false);
+                            e.target.value = '';
+                          }
+                        }
+                      }}
+                      className="hidden"
+                    />
+                  </label>
+                )}
+              </div>
+
+              {uploadNotice && (
+                <div className={`p-3 rounded-xl text-xs font-semibold flex items-center gap-2 ${
+                  uploadNotice.includes('Gagal') ? 'bg-red-50 text-red-700 border border-red-200' : 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                }`}>
+                  <CheckCircle2 className="w-4 h-4 shrink-0" />
+                  <span>{uploadNotice}</span>
+                </div>
+              )}
+
+              {/* Filters & Search */}
+              <div className="flex flex-col sm:flex-row gap-3">
+                <div className="relative flex-1">
+                  <Search className="w-4 h-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                  <input
+                    type="text"
+                    value={searchDriveQuery}
+                    onChange={e => setSearchDriveQuery(e.target.value)}
+                    placeholder="Cari nama berkas di Google Drive..."
+                    className="w-full pl-9 pr-3 py-2 border border-gray-200 rounded-xl text-xs focus:ring-2 focus:ring-blue-600 focus:outline-none"
+                  />
+                </div>
+
+                <div className="flex items-center gap-1.5 overflow-x-auto pb-1 sm:pb-0">
+                  {['All', 'Reports', 'Backup', 'Images', 'QRCode'].map(folder => (
+                    <button
+                      key={folder}
+                      type="button"
+                      onClick={() => setFilterDriveFolder(folder)}
+                      className={`px-3 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap cursor-pointer transition-colors ${
+                        filterDriveFolder === folder
+                          ? 'bg-slate-900 text-white font-bold'
+                          : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                      }`}
+                    >
+                      {folder === 'All' ? 'Semua Berkas' : folder}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* File List */}
+              <div className="border border-gray-200 rounded-xl overflow-hidden divide-y divide-gray-100">
+                {(() => {
+                  const filtered = driveFiles.filter(file => {
+                    const matchQuery = !searchDriveQuery || file.name.toLowerCase().includes(searchDriveQuery.toLowerCase());
+                    const matchFolder = filterDriveFolder === 'All' || file.folder === filterDriveFolder || (filterDriveFolder === 'Reports' && file.folder === 'Dokumen');
+                    return matchQuery && matchFolder;
+                  });
+
+                  if (filtered.length === 0) {
+                    return (
+                      <div className="p-8 text-center text-gray-400 text-xs space-y-1">
+                        <Folder className="w-8 h-8 text-gray-300 mx-auto" />
+                        <p className="font-semibold text-gray-600">Belum ada berkas pada kategori ini</p>
+                        <p className="text-[11px]">Unggah berkas atau simpan transaksi masuk dengan lampiran surat jalan.</p>
+                      </div>
+                    );
+                  }
+
+                  return filtered.map(file => (
+                    <div key={file.id} className="p-3.5 flex items-center justify-between gap-3 hover:bg-slate-50 transition-colors">
+                      <div className="flex items-center gap-3 min-w-0">
+                        <div className="w-9 h-9 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center shrink-0">
+                          {file.name.endsWith('.pdf') ? <FileText className="w-4.5 h-4.5" /> : file.name.endsWith('.json') ? <Database className="w-4.5 h-4.5 text-emerald-600" /> : <HardDrive className="w-4.5 h-4.5" />}
+                        </div>
+                        <div className="min-w-0">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="text-xs font-bold text-gray-900 truncate">{file.name}</span>
+                            <span className="px-1.5 py-0.5 rounded text-[10px] font-semibold bg-blue-100 text-blue-700">
+                              {file.folder}
+                            </span>
+                            <span className={`px-1.5 py-0.5 rounded text-[10px] font-semibold ${
+                              file.status?.includes('Google Drive') ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-700'
+                            }`}>
+                              {file.status || 'Cloud Storage'}
+                            </span>
+                          </div>
+                          <p className="text-[11px] text-gray-500 mt-0.5 truncate">
+                            Ukuran: {file.size} • Diunggah oleh: {file.uploadedBy} • {new Date(file.uploadedAt).toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-1.5 shrink-0">
+                        {(file.webViewLink || file.dataUrl) && (
+                          <a
+                            href={file.webViewLink || file.dataUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            download={file.name}
+                            className="px-2.5 py-1.5 rounded-lg bg-slate-100 hover:bg-blue-50 text-slate-700 hover:text-blue-700 text-xs font-semibold flex items-center gap-1 transition-colors"
+                          >
+                            <Download className="w-3.5 h-3.5" />
+                            <span className="hidden sm:inline">Buka / Unduh</span>
+                          </a>
+                        )}
+                        {isAdmin && onDeleteDriveFile && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              if (confirm(`Hapus berkas "${file.name}" dari Google Drive storage?`)) {
+                                onDeleteDriveFile(file.id, file.name);
+                              }
+                            }}
+                            className="p-1.5 rounded-lg text-gray-400 hover:text-red-600 hover:bg-red-50 transition-colors cursor-pointer"
+                            title="Hapus Berkas"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  ));
+                })()}
               </div>
             </div>
           </div>

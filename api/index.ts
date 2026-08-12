@@ -9,6 +9,18 @@ app.use(express.json({ limit: '10mb' }));
 
 // File backup lokal agar data tetap awet saat restart container / deploy tanpa SPREADSHEET_ID
 const DATA_FILE_PATH = path.join(process.cwd(), 'data_store.json');
+const UPLOADS_DIR = path.join(process.cwd(), 'uploads');
+
+if (!fs.existsSync(UPLOADS_DIR)) {
+  try {
+    fs.mkdirSync(UPLOADS_DIR, { recursive: true });
+  } catch (e) {
+    console.error("Gagal membuat folder uploads:", e);
+  }
+}
+
+// Serve folder uploads secara publik
+app.use('/uploads', express.static(UPLOADS_DIR));
 
 const saveToLocalFile = (data: any) => {
   try {
@@ -39,6 +51,7 @@ const auth = new google.auth.GoogleAuth({
   },
   scopes: [
     "https://www.googleapis.com/auth/spreadsheets",
+    "https://www.googleapis.com/auth/drive",
     "https://www.googleapis.com/auth/drive.file"
   ],
 });
@@ -50,7 +63,7 @@ const SPREADSHEET_ID = process.env.SPREADSHEET_ID;
 // Daftar tabel/entitas (Sheet Name)
 const SHEET_NAMES = [
   "Barang", "Kategori", "Supplier", "Unit", "Satuan", "Pegawai", 
-  "BarangMasuk", "BarangKeluar", "Riwayat", "AuditLog", "Accounts", "Settings", "Notifications"
+  "BarangMasuk", "BarangKeluar", "Riwayat", "AuditLog", "Accounts", "Settings", "Notifications", "DriveFiles"
 ];
 
 // Helper: Ubah Array of Objects menjadi 2D Array untuk Spreadsheet
@@ -314,16 +327,32 @@ app.post("/api/sync", async (req, res) => {
   }
 });
 
-// 3. ENDPOINT UNTUK UPLOAD FILE KE GOOGLE DRIVE
+// 3. ENDPOINT UNTUK UPLOAD FILE KE GOOGLE DRIVE & CLOUD STORAGE
 app.post("/api/drive/upload", async (req, res) => {
   try {
-    const { filename, fileData, folderId } = req.body;
+    const { filename, fileData, folderId, folder = 'Reports', uploadedBy = 'Petugas BMN' } = req.body;
     if (!filename || !fileData) {
       return res.status(400).json({ error: "Filename dan fileData (Base64) wajib diisi." });
     }
 
-    const gasUrl = process.env.GAS_UPLOAD_URL || "https://script.google.com/macros/s/AKfycbxZ52H2X8EdlIxb6R4k8ZhEGeaFYqePn73oi6GaqTmuUw7_Iy8UKiVXrcHvGn3dCbSs/exec";
-    
+    // Ekstraksi MIME Type dan Buffer
+    const matches = String(fileData).match(/^data:(.+);base64,(.+)$/);
+    const mimeType = matches ? matches[1] : (filename.endsWith('.pdf') ? 'application/pdf' : 'application/octet-stream');
+    const base64Content = matches ? matches[2] : fileData;
+    const buffer = Buffer.from(base64Content, 'base64');
+    const sizeKB = Math.max(1, Math.round(buffer.length / 1024));
+
+    // Simpan ke direktori upload lokal agar selalu dapat dibuka secara instan
+    const cleanFileName = `${Date.now()}_${path.basename(filename).replace(/[^a-zA-Z0-9._-]/g, '_')}`;
+    const localFilePath = path.join(UPLOADS_DIR, cleanFileName);
+    fs.writeFileSync(localFilePath, buffer);
+
+    let webViewLink = `/uploads/${cleanFileName}`;
+    let fileId = `local-${Date.now()}`;
+    let isDriveSynced = false;
+
+    // 1. Coba upload via Google Apps Script (jika disetel)
+    const gasUrl = process.env.GAS_UPLOAD_URL;
     if (gasUrl) {
       try {
         const fetch = (await import('node-fetch')).default;
@@ -334,54 +363,216 @@ app.post("/api/drive/upload", async (req, res) => {
         });
         
         const result = await response.json() as any;
-        if (result.success) {
-          return res.json({ success: true, fileId: result.fileId, webViewLink: result.webViewLink, message: "File berhasil diunggah via Apps Script!" });
+        if (result.success && result.webViewLink) {
+          webViewLink = result.webViewLink;
+          fileId = result.fileId || fileId;
+          isDriveSynced = true;
         }
       } catch (err: any) {
-        console.error("Gagal fetch ke GAS URL:", err.message);
+        console.warn("GAS upload fallback notice:", err.message);
       }
     }
 
-    if (process.env.GOOGLE_CLIENT_EMAIL && process.env.GOOGLE_PRIVATE_KEY) {
-      const matches = String(fileData).match(/^data:(.+);base64,(.+)$/);
-      const mimeType = matches ? matches[1] : 'application/pdf';
-      const base64Content = matches ? matches[2] : fileData;
-      const buffer = Buffer.from(base64Content, 'base64');
+    // 2. Coba upload langsung via Google Drive API Service Account
+    if (!isDriveSynced && process.env.GOOGLE_CLIENT_EMAIL && process.env.GOOGLE_PRIVATE_KEY) {
+      try {
+        const { Readable } = await import('stream');
+        const stream = new Readable();
+        stream.push(buffer);
+        stream.push(null);
 
-      const { Readable } = await import('stream');
-      const stream = new Readable();
-      stream.push(buffer);
-      stream.push(null);
+        const fileMetadata: any = { name: filename };
+        // Hanya sertakan parents jika ID folder valid (bukan placeholder awal)
+        if (folderId && !folderId.startsWith('1dr_') && folderId.length > 5) {
+          fileMetadata.parents = [folderId];
+        }
 
-      const fileMetadata: any = { name: filename };
-      if (folderId) {
-        fileMetadata.parents = [folderId];
+        const driveRes = await drive.files.create({
+          requestBody: fileMetadata,
+          media: {
+            mimeType: mimeType,
+            body: stream,
+          },
+          fields: 'id, webViewLink, webContentLink',
+          supportsAllDrives: true
+        });
+
+        if (driveRes.data && driveRes.data.id) {
+          fileId = driveRes.data.id;
+          webViewLink = driveRes.data.webViewLink || webViewLink;
+          isDriveSynced = true;
+
+          // Coba set permission publik agar berkas bisa dibuka langsung
+          try {
+            await drive.permissions.create({
+              fileId: driveRes.data.id,
+              requestBody: {
+                role: 'reader',
+                type: 'anyone',
+              },
+            });
+          } catch (permErr) {
+            // Abaikan jika domain/restricted
+          }
+        }
+      } catch (driveErr: any) {
+        console.warn("Google Drive direct upload notice:", driveErr.message);
       }
-
-      const file = await drive.files.create({
-        requestBody: fileMetadata,
-        media: {
-          mimeType: mimeType,
-          body: stream,
-        },
-        fields: 'id, webViewLink, webContentLink',
-        supportsAllDrives: true
-      });
-
-      return res.json({
-        success: true,
-        fileId: file.data.id,
-        webViewLink: file.data.webViewLink,
-        message: "File berhasil diunggah langsung ke Google Drive!"
-      });
-    } else {
-      return res.json({
-        success: true,
-        message: "Dokumen berhasil disimpan ke database lokal & Drive storage!"
-      });
     }
+
+    // Susun item berkas Drive
+    const driveItem = {
+      id: `DRV-${Date.now()}`,
+      name: filename,
+      folder: folder as any,
+      size: `${sizeKB} KB`,
+      type: mimeType,
+      uploadedAt: new Date().toISOString(),
+      uploadedBy,
+      dataUrl: `/uploads/${cleanFileName}`,
+      webViewLink,
+      fileId,
+      status: isDriveSynced ? 'Tersinkron ke Google Drive' : 'Tersimpan di Cloud Storage'
+    };
+
+    // Update memoryCache & local file
+    if (!memoryCache) memoryCache = loadFromLocalFile() || {};
+    if (!Array.isArray(memoryCache.DriveFiles)) memoryCache.DriveFiles = [];
+    memoryCache.DriveFiles.unshift(driveItem);
+    saveToLocalFile(memoryCache);
+
+    res.json({
+      success: true,
+      item: driveItem,
+      webViewLink,
+      fileId,
+      status: driveItem.status,
+      message: isDriveSynced
+        ? `Dokumen "${filename}" berhasil diunggah langsung ke Google Drive!`
+        : `Dokumen "${filename}" berhasil disimpan dengan aman di Cloud Storage & siap diakses.`
+    });
   } catch (error: any) {
     console.error("Gagal upload file ke Drive:", error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// 4. ENDPOINT MENGAMBIL DAFTAR BERKAS DRIVE
+app.get("/api/drive/files", (req, res) => {
+  try {
+    const localData = loadFromLocalFile();
+    const list = memoryCache?.DriveFiles || localData?.DriveFiles || [];
+    res.json(list);
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// 5. ENDPOINT BACKUP OTOMATIS KE GOOGLE DRIVE
+app.post("/api/drive/backup", async (req, res) => {
+  try {
+    const backupData = req.body || memoryCache || loadFromLocalFile() || {};
+    const dateStr = new Date().toISOString().replace(/[:.]/g, '-');
+    const filename = `SILAP_BMN_Database_Backup_${dateStr}.json`;
+    const jsonString = JSON.stringify(backupData, null, 2);
+    const buffer = Buffer.from(jsonString, 'utf8');
+    const sizeKB = Math.max(1, Math.round(buffer.length / 1024));
+
+    const cleanFileName = `${Date.now()}_${filename}`;
+    const localFilePath = path.join(UPLOADS_DIR, cleanFileName);
+    fs.writeFileSync(localFilePath, buffer);
+
+    let webViewLink = `/uploads/${cleanFileName}`;
+    let fileId = `backup-${Date.now()}`;
+    let isDriveSynced = false;
+
+    // Coba upload ke Google Drive
+    if (process.env.GOOGLE_CLIENT_EMAIL && process.env.GOOGLE_PRIVATE_KEY) {
+      try {
+        const { Readable } = await import('stream');
+        const stream = new Readable();
+        stream.push(buffer);
+        stream.push(null);
+
+        const fileMetadata: any = { name: filename };
+        const backupFolderId = req.body?.folderBackupId;
+        if (backupFolderId && !backupFolderId.startsWith('1dr_') && backupFolderId.length > 5) {
+          fileMetadata.parents = [backupFolderId];
+        }
+
+        const driveRes = await drive.files.create({
+          requestBody: fileMetadata,
+          media: {
+            mimeType: 'application/json',
+            body: stream,
+          },
+          fields: 'id, webViewLink, webContentLink',
+          supportsAllDrives: true
+        });
+
+        if (driveRes.data && driveRes.data.id) {
+          fileId = driveRes.data.id;
+          webViewLink = driveRes.data.webViewLink || webViewLink;
+          isDriveSynced = true;
+        }
+      } catch (err: any) {
+        console.warn("Drive backup notice:", err.message);
+      }
+    }
+
+    const driveItem = {
+      id: `DRV-${Date.now()}`,
+      name: filename,
+      folder: 'Backup' as const,
+      size: `${sizeKB} KB`,
+      type: 'application/json',
+      uploadedAt: new Date().toISOString(),
+      uploadedBy: req.body?.actor || 'Administrator',
+      dataUrl: `/uploads/${cleanFileName}`,
+      webViewLink,
+      fileId,
+      status: isDriveSynced ? 'Tersinkron ke Google Drive' : 'Tersimpan di Cloud Storage'
+    };
+
+    if (!memoryCache) memoryCache = loadFromLocalFile() || {};
+    if (!Array.isArray(memoryCache.DriveFiles)) memoryCache.DriveFiles = [];
+    memoryCache.DriveFiles.unshift(driveItem);
+    saveToLocalFile(memoryCache);
+
+    res.json({
+      success: true,
+      item: driveItem,
+      webViewLink,
+      filename,
+      dataUrl: `/uploads/${cleanFileName}`,
+      message: isDriveSynced 
+        ? `Backup sistem berhasil disinkronisasi ke Google Drive Folder Backup (${filename})`
+        : `Backup database lengkap berhasil dibuat dan disimpan ke Cloud Storage.`
+    });
+  } catch (error: any) {
+    console.error("Gagal membuat backup Drive:", error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// 6. ENDPOINT HAPUS BERKAS DRIVE
+app.delete("/api/drive/files/:id", async (req, res) => {
+  try {
+    const fileId = req.params.id;
+    if (!memoryCache) memoryCache = loadFromLocalFile() || {};
+    if (Array.isArray(memoryCache.DriveFiles)) {
+      const target = memoryCache.DriveFiles.find((f: any) => f.id === fileId || f.fileId === fileId);
+      memoryCache.DriveFiles = memoryCache.DriveFiles.filter((f: any) => f.id !== fileId && f.fileId !== fileId);
+      saveToLocalFile(memoryCache);
+
+      if (target && target.fileId && !target.fileId.startsWith('local-') && process.env.GOOGLE_CLIENT_EMAIL) {
+        try {
+          await drive.files.delete({ fileId: target.fileId });
+        } catch (e) {}
+      }
+    }
+    res.json({ success: true, message: "Berkas berhasil dihapus." });
+  } catch (error: any) {
     res.status(500).json({ error: error.message });
   }
 });

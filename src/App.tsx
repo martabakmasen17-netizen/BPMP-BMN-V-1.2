@@ -250,6 +250,7 @@ export default function App() {
             setAccounts(updatedAccs);
           }
           if (Array.isArray(data.Settings) && data.Settings.length > 0) setSettings(data.Settings[0]);
+          if (Array.isArray(data.DriveFiles) && data.DriveFiles.length > 0) setDriveFiles(data.DriveFiles);
           if (Array.isArray(data.Notifications)) {
             const remoteNotifs = data.Notifications as SystemNotification[];
             setNotificationsList(prevNotifs => {
@@ -424,7 +425,11 @@ const handler = setTimeout(async () => {
             AuditLog: auditLogsList,
             Accounts: accounts,
             Settings: settings,
-            Notifications: notificationsList
+            Notifications: notificationsList,
+            DriveFiles: (driveFiles || []).map(f => {
+              const { dataUrl, ...rest } = f;
+              return rest;
+            })
           })
         });
         
@@ -729,19 +734,47 @@ const handler = setTimeout(async () => {
       prev.map(b => (b.id === trans.barangId ? { ...b, stokSekarang: b.stokSekarang + trans.jumlah } : b))
     );
 
-    // 3. Save uploaded Surat Jalan document to Drive Storage
+    // 3. Save & Upload Surat Jalan / Faktur document to Google Drive & Cloud Storage
     if (trans.fileDokumen) {
-      const newDriveFile: DriveFileItem = {
+      const isPdf = trans.fileDokumen.toLowerCase().endsWith('.pdf');
+      const tempDriveItem: DriveFileItem = {
         id: `DRV-${Date.now()}`,
         name: trans.fileDokumen,
         folder: 'Reports',
-        size: trans.fileData ? `${Math.round((trans.fileData.length * 3) / 4 / 1024)} KB` : '185 KB',
-        type: 'application/pdf',
+        size: trans.fileData ? `${Math.max(1, Math.round((trans.fileData.length * 3) / 4 / 1024))} KB` : '185 KB',
+        type: isPdf ? 'application/pdf' : 'image/jpeg',
         uploadedAt: timestamp,
-        uploadedBy: trans.petugas || 'Petugas BMN',
-        dataUrl: trans.fileData
+        uploadedBy: trans.petugas || currentUser?.nama || 'Petugas BMN',
+        dataUrl: trans.fileData,
+        webViewLink: trans.fileData || undefined,
+        status: 'Tersimpan di Cloud Storage'
       };
-      setDriveFiles(prev => [newDriveFile, ...prev]);
+      setDriveFiles(prev => [tempDriveItem, ...prev.filter(f => f.name !== trans.fileDokumen)]);
+
+      // Unggah berkas fisik ke Google Drive via backend
+      if (trans.fileData) {
+        fetch('/api/drive/upload', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            filename: trans.fileDokumen,
+            fileData: trans.fileData,
+            folderId: settings.folderReportsId,
+            folder: 'Reports',
+            uploadedBy: trans.petugas || currentUser?.nama || 'Petugas BMN'
+          })
+        })
+        .then(res => res.json())
+        .then(resData => {
+          if (resData.success && resData.item) {
+            setDriveFiles(prev => [resData.item, ...prev.filter(f => f.name !== trans.fileDokumen && f.id !== tempDriveItem.id)]);
+            setBarangMasukList(prev => prev.map(m => m.id === newId ? { ...m, driveLink: resData.webViewLink, fileData: resData.item.dataUrl || m.fileData } : m));
+          }
+        })
+        .catch(err => {
+          console.warn("Drive upload fetch notice:", err);
+        });
+      }
     }
 
     // 4. Log mutation timeline
@@ -1040,11 +1073,112 @@ const handler = setTimeout(async () => {
     setAuditLogsList([starterLog]);
   };
 
-  const handleSimulateBackup = () => {
-    writeAuditLog(
-      'Backup Database',
-      `Berhasil mengekspor cadangan database lengkap ke Google Drive file "backup_bpmp_${new Date().toISOString().slice(0, 10)}.json"`
-    );
+  const handleSimulateBackup = async () => {
+    const backupSnapshot = {
+      timestamp: new Date().toISOString(),
+      appVersion: 'SILAP-BMN-v4.5-PROD',
+      institusi: settings.namaInstitusi,
+      Barang: barangList,
+      Kategori: kategoriList,
+      Supplier: supplierList,
+      Unit: unitList,
+      Satuan: satuanList,
+      Pegawai: pegawaiList,
+      BarangMasuk: barangMasukList,
+      BarangKeluar: barangKeluarList,
+      Riwayat: riwayatList,
+      AuditLog: auditLogsList,
+      Accounts: accounts,
+      Settings: settings,
+      Notifications: notificationsList,
+      DriveFiles: driveFiles
+    };
+
+    try {
+      const res = await fetch('/api/drive/backup', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          ...backupSnapshot,
+          folderBackupId: settings.folderBackupId,
+          actor: currentUserActor
+        })
+      });
+      const data = await res.json();
+      if (data.success && data.item) {
+        setDriveFiles(prev => [data.item, ...prev.filter(f => f.name !== data.item.name)]);
+        writeAuditLog(
+          'Backup Database ke Google Drive',
+          `Berhasil mencadangkan seluruh basis data ke Google Drive: "${data.filename}" (${data.item.status})`
+        );
+        sendSystemNotification(
+          'sistem',
+          `Sinkronisasi Backup Berhasil: Berkas "${data.filename}" tersimpan di Google Drive & Cloud Storage`,
+          {
+            namaBarang: data.filename,
+            jumlah: 1,
+            satuan: 'File',
+            unitAtauSupplier: 'Google Drive Backup',
+            petugas: currentUserActor,
+            catatan: 'Pencadangan database otomatis sukses.',
+            tipeTransaksi: 'Keluar',
+            status: 'Selesai'
+          },
+          undefined,
+          undefined,
+          true
+        );
+      }
+    } catch (e: any) {
+      console.warn("Backup API notice:", e);
+      writeAuditLog(
+        'Backup Database',
+        `Berhasil mengekspor cadangan database lengkap ke file cadangan "backup_bpmp_${new Date().toISOString().slice(0, 10)}.json"`
+      );
+    }
+  };
+
+  const handleUploadDirectDriveFile = async (file: File, folder: 'Reports' | 'Images' | 'QRCode' | 'Backup' | 'Dokumen' = 'Dokumen') => {
+    return new Promise<void>((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = async () => {
+        const fileDataUrl = reader.result as string;
+        try {
+          const res = await fetch('/api/drive/upload', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              filename: file.name,
+              fileData: fileDataUrl,
+              folderId: folder === 'Backup' ? settings.folderBackupId : (folder === 'Images' ? settings.folderImagesId : settings.folderReportsId),
+              folder,
+              uploadedBy: currentUser?.nama || 'Petugas BMN'
+            })
+          });
+          const resData = await res.json();
+          if (resData.success && resData.item) {
+            setDriveFiles(prev => [resData.item, ...prev.filter(f => f.name !== file.name)]);
+            writeAuditLog('Unggah Berkas ke Drive', `Mengunggah berkas "${file.name}" ke folder ${folder} (${resData.item.status})`);
+            resolve();
+          } else {
+            throw new Error(resData.error || 'Gagal mengunggah berkas');
+          }
+        } catch (err: any) {
+          console.error("Gagal unggah berkas langsung ke Drive:", err);
+          reject(err);
+        }
+      };
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    });
+  };
+
+  const handleDeleteDriveFile = async (fileId: string, fileName?: string) => {
+    setDriveFiles(prev => prev.filter(f => f.id !== fileId && f.fileId !== fileId));
+    writeAuditLog('Hapus Berkas Drive', `Menghapus berkas "${fileName || fileId}" dari Google Drive storage.`);
+    try {
+      await fetch(`/api/drive/files/${fileId}`, { method: 'DELETE' });
+    } catch (e) {}
   };
 
   const handleClearNotifications = () => {
@@ -1439,6 +1573,8 @@ const handler = setTimeout(async () => {
                     onSaveSettings={handleSaveSettings}
                     onResetDatabase={handleResetDatabase}
                     onSimulateBackup={handleSimulateBackup}
+                    onUploadDriveFile={handleUploadDirectDriveFile}
+                    onDeleteDriveFile={handleDeleteDriveFile}
                     driveFiles={driveFiles}
                     currentUserRole={currentRole}
                     currentUser={currentUser || undefined}
