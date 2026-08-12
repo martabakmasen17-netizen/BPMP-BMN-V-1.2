@@ -736,6 +736,31 @@ export default function PengaturanView({
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2">
                   <div className="space-y-1.5">
+                    <label className="block text-xs font-bold text-gray-700">Google Service Account Email</label>
+                    <input
+                      type="text"
+                      disabled={!isAdmin}
+                      placeholder="contoh: akun-bmn@project-id.iam.gserviceaccount.com"
+                      value={formData.serviceAccountEmail || ''}
+                      onChange={e => setFormData({ ...formData, serviceAccountEmail: e.target.value })}
+                      className="w-full px-3.5 py-2.5 border border-gray-200 rounded-xl text-xs font-mono bg-slate-50 focus:ring-2 focus:ring-blue-600 focus:outline-none disabled:bg-slate-100 disabled:text-slate-500"
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <label className="block text-xs font-bold text-gray-700">Google Private Key (JSON key)</label>
+                    <input
+                      type="password"
+                      disabled={!isAdmin}
+                      placeholder="-----BEGIN PRIVATE KEY-----\n..."
+                      value={formData.serviceAccountPrivateKey || ''}
+                      onChange={e => setFormData({ ...formData, serviceAccountPrivateKey: e.target.value })}
+                      className="w-full px-3.5 py-2.5 border border-gray-200 rounded-xl text-xs font-mono bg-slate-50 focus:ring-2 focus:ring-blue-600 focus:outline-none disabled:bg-slate-100 disabled:text-slate-500"
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2">
+                  <div className="space-y-1.5">
                     <label className="block text-xs font-bold text-gray-700">Folder ID QR Code PNG</label>
                     <input
                       type="text"

@@ -42,12 +42,42 @@ const loadFromLocalFile = () => {
   return null;
 };
 
-// Inisialisasi Google Auth Client
-const auth = new google.auth.GoogleAuth({
+const getGoogleClients = () => {
+  const localCache = memoryCache || loadFromLocalFile() || {};
+  const settings = Array.isArray(localCache.Settings) ? localCache.Settings[0] : {};
+  
+  const clientEmail = settings?.serviceAccountEmail || process.env.GOOGLE_CLIENT_EMAIL;
+  const privateKey = settings?.serviceAccountPrivateKey || process.env.GOOGLE_PRIVATE_KEY;
+  
+  if (!clientEmail || !privateKey) {
+    return { drive: null, sheets: null, hasCredentials: false };
+  }
+  
+  const dynAuth = new google.auth.GoogleAuth({
+    credentials: {
+      client_email: clientEmail,
+      private_key: privateKey.replace(/\\n/g, '\n'),
+    },
+    scopes: [
+      "https://www.googleapis.com/auth/spreadsheets",
+      "https://www.googleapis.com/auth/drive",
+      "https://www.googleapis.com/auth/drive.file"
+    ],
+  });
+  
+  return {
+    drive: google.drive({ version: "v3", auth: dynAuth }),
+    sheets: google.sheets({ version: "v4", auth: dynAuth }),
+    hasCredentials: true,
+    spreadsheetId: settings?.spreadsheetId || process.env.SPREADSHEET_ID
+  };
+};
+
+// Global fallback for startup
+let auth = new google.auth.GoogleAuth({
   credentials: {
-    client_email: process.env.GOOGLE_CLIENT_EMAIL,
-    // Replace \n with actual line breaks
-    private_key: process.env.GOOGLE_PRIVATE_KEY?.replace(/\\n/g, '\n'),
+    client_email: process.env.GOOGLE_CLIENT_EMAIL || "dummy@example.com",
+    private_key: (process.env.GOOGLE_PRIVATE_KEY || "dummy_key").replace(/\\n/g, '\n'),
   },
   scopes: [
     "https://www.googleapis.com/auth/spreadsheets",
@@ -55,7 +85,6 @@ const auth = new google.auth.GoogleAuth({
     "https://www.googleapis.com/auth/drive.file"
   ],
 });
-
 const sheets = google.sheets({ version: "v4", auth });
 const drive = google.drive({ version: "v3", auth });
 const SPREADSHEET_ID = process.env.SPREADSHEET_ID;
@@ -373,8 +402,8 @@ app.post("/api/drive/upload", async (req, res) => {
       }
     }
 
-    // 2. Coba upload langsung via Google Drive API Service Account
-    if (!isDriveSynced && process.env.GOOGLE_CLIENT_EMAIL && process.env.GOOGLE_PRIVATE_KEY) {
+    const dyn = getGoogleClients();
+    if (!isDriveSynced && dyn.hasCredentials && dyn.drive) {
       try {
         const { Readable } = await import('stream');
         const stream = new Readable();
@@ -387,7 +416,7 @@ app.post("/api/drive/upload", async (req, res) => {
           fileMetadata.parents = [folderId];
         }
 
-        const driveRes = await drive.files.create({
+        const driveRes = await dyn.drive.files.create({
           requestBody: fileMetadata,
           media: {
             mimeType: mimeType,
@@ -404,7 +433,7 @@ app.post("/api/drive/upload", async (req, res) => {
 
           // Coba set permission publik agar berkas bisa dibuka langsung
           try {
-            await drive.permissions.create({
+            await dyn.drive.permissions.create({
               fileId: driveRes.data.id,
               requestBody: {
                 role: 'reader',
@@ -486,8 +515,8 @@ app.post("/api/drive/backup", async (req, res) => {
     let fileId = `backup-${Date.now()}`;
     let isDriveSynced = false;
 
-    // Coba upload ke Google Drive
-    if (process.env.GOOGLE_CLIENT_EMAIL && process.env.GOOGLE_PRIVATE_KEY) {
+    const dyn = getGoogleClients();
+    if (dyn.hasCredentials && dyn.drive) {
       try {
         const { Readable } = await import('stream');
         const stream = new Readable();
@@ -500,7 +529,7 @@ app.post("/api/drive/backup", async (req, res) => {
           fileMetadata.parents = [backupFolderId];
         }
 
-        const driveRes = await drive.files.create({
+        const driveRes = await dyn.drive.files.create({
           requestBody: fileMetadata,
           media: {
             mimeType: 'application/json',
@@ -565,9 +594,10 @@ app.delete("/api/drive/files/:id", async (req, res) => {
       memoryCache.DriveFiles = memoryCache.DriveFiles.filter((f: any) => f.id !== fileId && f.fileId !== fileId);
       saveToLocalFile(memoryCache);
 
-      if (target && target.fileId && !target.fileId.startsWith('local-') && process.env.GOOGLE_CLIENT_EMAIL) {
+      const dyn = getGoogleClients();
+      if (target && target.fileId && !target.fileId.startsWith('local-') && dyn.hasCredentials && dyn.drive) {
         try {
-          await drive.files.delete({ fileId: target.fileId });
+          await dyn.drive.files.delete({ fileId: target.fileId });
         } catch (e) {}
       }
     }

@@ -173,6 +173,8 @@ export interface Settings {
   folderDokumenId?: string;
   folderBackupId: string;
   spreadsheetId: string;
+  serviceAccountEmail?: string;
+  serviceAccountPrivateKey?: string;
   bilaStokRendahNotif: boolean;
   bilaStokHabisNotif: boolean;
   konfirmasiOtomatisKeluar?: boolean;
