@@ -249,7 +249,11 @@ export default function App() {
             );
             setAccounts(updatedAccs);
           }
-          if (Array.isArray(data.Settings) && data.Settings.length > 0) setSettings(data.Settings[0]);
+          if (Array.isArray(data.Settings) && data.Settings.length > 0) {
+            setSettings(data.Settings[0]);
+          } else if (data.Settings && typeof data.Settings === 'object' && Object.keys(data.Settings).length > 0) {
+            setSettings(data.Settings);
+          }
           if (Array.isArray(data.DriveFiles) && data.DriveFiles.length > 0) setDriveFiles(data.DriveFiles);
           if (Array.isArray(data.Notifications)) {
             const remoteNotifs = data.Notifications as SystemNotification[];
@@ -424,7 +428,7 @@ const handler = setTimeout(async () => {
             Riwayat: riwayatList,
             AuditLog: auditLogsList,
             Accounts: accounts,
-            Settings: settings,
+            Settings: [settings],
             Notifications: notificationsList,
             DriveFiles: (driveFiles || []).map(f => {
               const { dataUrl, ...rest } = f;
@@ -1089,7 +1093,7 @@ const handler = setTimeout(async () => {
       Riwayat: riwayatList,
       AuditLog: auditLogsList,
       Accounts: accounts,
-      Settings: settings,
+      Settings: [settings],
       Notifications: notificationsList,
       DriveFiles: driveFiles
     };
