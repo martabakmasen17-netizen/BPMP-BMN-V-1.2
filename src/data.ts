@@ -12,16 +12,7 @@ export const INITIAL_SUPPLIER: Supplier[] = [];
 
 export const INITIAL_UNIT: Unit[] = [];
 
-export const INITIAL_SATUAN: Satuan[] = STANDARD_SATUAN_PRESETS.map((p, idx) => ({
-  id: `SAT-${String(idx + 1).padStart(3, '0')}`,
-  nama: p.nama,
-  keterangan: p.keterangan,
-  tipe: p.tipe,
-  faktorKonversi: p.faktorKonversi,
-  satuanDasar: p.satuanDasar,
-  rekomendasiStokMin: p.rekomendasiStokMin,
-  rekomendasiStokMaks: p.rekomendasiStokMaks,
-}));
+export const INITIAL_SATUAN: Satuan[] = [];
 
 export const INITIAL_BARANG: Barang[] = [];
 
@@ -51,61 +42,12 @@ export const DEFAULT_SETTINGS: Settings = {
   folderImagesId: '1dr_images_bpmp_sumsel_folder',
   folderReportsId: '1dr_reports_bpmp_sumsel_folder',
   folderBackupId: '1dr_backup_bpmp_sumsel_folder',
-  spreadsheetId: '1ss_bpmp_sumsel_inventory_database',
+  spreadsheetId: '',
   bilaStokRendahNotif: true,
   bilaStokHabisNotif: true,
   konfirmasiOtomatisKeluar: true
 };
 
-export const INITIAL_PEGAWAI: Pegawai[] = [
-  { 
-    id: 'PGW-001', 
-    nama: 'Roni Setiawan', 
-    jabatan: 'Pengolah Data dan Informasi', 
-    tugas: 'PJ BMN', 
-    nip: '198804152014021003', 
-    telepon: '0812-7123-4567' 
-  },
-  { 
-    id: 'PGW-002', 
-    nama: 'Ilham Muharrama', 
-    jabatan: 'Magang/KP', 
-    tugas: 'Petugas BMN & Pengembang Sistem SILAP', 
-    nip: '-', 
-    telepon: '08981741680' 
-  },
-  { 
-    id: 'PGW-003', 
-    nama: 'Budi Hermawan', 
-    jabatan: 'Penata Laksana Barang Terampil', 
-    tugas: 'Anggota', 
-    nip: '199112022019031005', 
-    telepon: '0821-8899-7711' 
-  },
-  { 
-    id: 'PGW-004', 
-    nama: 'Ahmad Fauzi, S.Kom.', 
-    jabatan: 'Operator Layanan Operasional', 
-    tugas: 'Anggota', 
-    nip: '199208182018011002', 
-    telepon: '0812-7345-9988' 
-  },
-  { 
-    id: 'PGW-005', 
-    nama: 'Siti Aminah, S.E.', 
-    jabatan: 'Operator Layanan Operasional', 
-    tugas: 'Anggota', 
-    nip: '199305142020012003', 
-    telepon: '0813-6677-8899' 
-  },
-  { 
-    id: 'PGW-006', 
-    nama: 'Heri Prasetyo', 
-    jabatan: 'Pengelola Umum Operasional', 
-    tugas: 'Anggota', 
-    nip: '198911102016031001', 
-    telepon: '0812-5544-3322' 
-  }
-];
+export const INITIAL_PEGAWAI: Pegawai[] = [];
 
 export const INITIAL_DRIVE_FILES: DriveFileItem[] = [];

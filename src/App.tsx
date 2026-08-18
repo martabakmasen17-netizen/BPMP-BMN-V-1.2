@@ -66,32 +66,7 @@ import {
   DriveFileItem
 } from './types';
 
-const INITIAL_ACCOUNTS: UserAccount[] = [
-  {
-    username: 'admin',
-    nama: 'Ilham Muharrama',
-    nip: '-',
-    jabatan: 'Magang/KP',
-    tugas: 'Petugas BMN & Pengembang Sistem SILAP',
-    telepon: '08981741680',
-    password: 'admin',
-    role: 'Administrator',
-    status: 'Disetujui',
-    registeredAt: '2026-07-15T08:00:00Z'
-  },
-  {
-    username: 'petugas',
-    nama: 'Roni Setiawan',
-    nip: '198804152014021003',
-    jabatan: 'Pengolah Data dan Informasi',
-    tugas: 'PJ BMN',
-    telepon: '081271234567',
-    password: 'bmn',
-    role: 'Petugas BMN',
-    status: 'Disetujui',
-    registeredAt: '2026-07-18T08:00:00Z'
-  }
-];
+const INITIAL_ACCOUNTS: UserAccount[] = [];
 
 export default function App() {
   const [activeTab, setActiveTab] = useState<ActiveTab>('dashboard');
@@ -227,21 +202,19 @@ export default function App() {
              return t;
           };
 
-          if (migratedBarang && migratedBarang.length > 0) {
-            setBarangList(migratedBarang);
-          }
-          if (Array.isArray(data.Kategori) && data.Kategori.length > 0) setKategoriList(data.Kategori);
-          if (Array.isArray(data.Supplier) && data.Supplier.length > 0) setSupplierList(data.Supplier);
-          if (Array.isArray(data.Unit) && data.Unit.length > 0) setUnitList(data.Unit);
-          if (Array.isArray(data.Satuan) && data.Satuan.length > 0) setSatuanList(data.Satuan);
-          if (Array.isArray(data.Pegawai) && data.Pegawai.length > 0) setPegawaiList(data.Pegawai);
+          if (Array.isArray(data.Barang)) setBarangList(migratedBarang);
+          if (Array.isArray(data.Kategori)) setKategoriList(data.Kategori);
+          if (Array.isArray(data.Supplier)) setSupplierList(data.Supplier);
+          if (Array.isArray(data.Unit)) setUnitList(data.Unit);
+          if (Array.isArray(data.Satuan)) setSatuanList(data.Satuan);
+          if (Array.isArray(data.Pegawai)) setPegawaiList(data.Pegawai);
           
-          if (Array.isArray(data.BarangMasuk) && data.BarangMasuk.length > 0) setBarangMasukList(data.BarangMasuk.map(fixTransId));
-          if (Array.isArray(data.BarangKeluar) && data.BarangKeluar.length > 0) setBarangKeluarList(data.BarangKeluar.map(fixTransId));
-          if (Array.isArray(data.Riwayat) && data.Riwayat.length > 0) setRiwayatList(data.Riwayat.map(fixTransId));
+          if (Array.isArray(data.BarangMasuk)) setBarangMasukList(data.BarangMasuk.map(fixTransId));
+          if (Array.isArray(data.BarangKeluar)) setBarangKeluarList(data.BarangKeluar.map(fixTransId));
+          if (Array.isArray(data.Riwayat)) setRiwayatList(data.Riwayat.map(fixTransId));
 
-          if (Array.isArray(data.AuditLog) && data.AuditLog.length > 0) setAuditLogsList(data.AuditLog);
-          if (Array.isArray(data.Accounts) && data.Accounts.length > 0) {
+          if (Array.isArray(data.AuditLog)) setAuditLogsList(data.AuditLog);
+          if (Array.isArray(data.Accounts)) {
             const updatedAccs = data.Accounts.map((a: UserAccount) =>
               a.username === 'admin'
                 ? { ...a, nama: 'Ilham Muharrama', nip: '-', jabatan: 'Magang/KP', telepon: '08981741680' }
