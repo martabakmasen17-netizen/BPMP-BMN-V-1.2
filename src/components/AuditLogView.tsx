@@ -20,6 +20,7 @@ export default function AuditLogView({ logs, onClearLogs, onDeleteLogs, currentU
   const [selectedMonth, setSelectedMonth] = useState<string>('all');
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [showDeleteConfirmModal, setShowDeleteConfirmModal] = useState(false);
+  const [showClearAllModal, setShowClearAllModal] = useState(false);
   const [showExportModal, setShowExportModal] = useState(false);
 
   const isAdmin = currentUser.role === 'Administrator' || currentUser.username === 'admin';
@@ -192,11 +193,7 @@ export default function AuditLogView({ logs, onClearLogs, onDeleteLogs, currentU
 
           {isAdmin && (
             <button
-              onClick={() => {
-                if (confirm('Apakah Anda yakin ingin menghapus SELURUH log audit aktivitas?')) {
-                  onClearLogs();
-                }
-              }}
+              onClick={() => setShowClearAllModal(true)}
               className="w-full sm:w-auto flex items-center justify-center gap-1.5 px-3 py-2 border border-gray-200 hover:bg-slate-50 rounded-xl text-xs font-bold text-gray-600 cursor-pointer"
             >
               <RefreshCcw className="w-3.5 h-3.5" /> Kosongkan Semua Log
@@ -337,6 +334,47 @@ export default function AuditLogView({ logs, onClearLogs, onDeleteLogs, currentU
           )}
         </div>
       </div>
+
+      {/* Clear All Modal */}
+      {showClearAllModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-xs p-4 animate-in fade-in duration-150">
+          <div className="bg-white rounded-2xl max-w-md w-full p-6 space-y-4 shadow-2xl border border-slate-100">
+            <div className="flex items-center gap-3 text-rose-600">
+              <div className="p-3 bg-rose-100 rounded-xl">
+                <Trash2 className="w-6 h-6 text-rose-600" />
+              </div>
+              <div>
+                <h3 className="font-extrabold text-slate-900 text-base">Kosongkan Semua Log Audit</h3>
+                <p className="text-xs text-slate-500">Tindakan ini tidak dapat dibatalkan</p>
+              </div>
+            </div>
+
+            <p className="text-xs text-slate-600 leading-relaxed bg-rose-50 border border-rose-100 p-3.5 rounded-xl font-medium">
+              Apakah Anda yakin ingin menghapus SELURUH riwayat log audit aktivitas secara permanen?
+            </p>
+
+            <div className="flex justify-end gap-2.5 pt-2">
+              <button
+                type="button"
+                onClick={() => setShowClearAllModal(false)}
+                className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl text-xs cursor-pointer transition-colors"
+              >
+                Batal
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  onClearLogs();
+                  setShowClearAllModal(false);
+                }}
+                className="px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white font-bold rounded-xl text-xs cursor-pointer shadow-md shadow-rose-600/20 transition-all"
+              >
+                Ya, Kosongkan Semua Log
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Export Confirm Modal */}
       <ExportConfirmModal<AuditLog>

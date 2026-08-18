@@ -112,6 +112,7 @@ export default function PengaturanView({
 
   const [activeTab, setActiveTab] = useState<'profil' | 'operasional' | 'notifikasi' | 'cloud' | 'maintenance'>('profil');
   const [showSavedToast, setShowSavedToast] = useState(false);
+  const [showResetModal, setShowResetModal] = useState(false);
   const [isBackupRunning, setIsBackupRunning] = useState(false);
   const [isTestingConnection, setIsTestingConnection] = useState(false);
   const [connectionTestResult, setConnectionTestResult] = useState<string | null>(null);
@@ -841,14 +842,58 @@ export default function PengaturanView({
                 disabled={!isAdmin}
                 onClick={() => {
                   if (!isAdmin) return;
-                  if (confirm('PERINGATAN SANGAT PENTING: Apakah Anda benar-benar yakin ingin mereset basis data ke kondisi awal semula?')) {
-                    onResetDatabase();
-                  }
+                  setShowResetModal(true);
                 }}
                 className="px-4 py-2.5 bg-red-600 hover:bg-red-700 text-white font-bold text-xs rounded-xl shadow-sm transition-all cursor-pointer flex items-center gap-2 disabled:opacity-40 disabled:cursor-not-allowed"
               >
                 <Trash2 className="w-4 h-4" /> Setel Ulang Database
               </button>
+            </div>
+          </div>
+        )}
+
+        {/* Modal Konfirmasi Reset Database */}
+        {showResetModal && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-xs p-4 animate-in fade-in duration-150">
+            <div className="bg-white rounded-2xl max-w-md w-full p-6 space-y-4 shadow-2xl border border-slate-100">
+              <div className="flex items-center gap-3 text-red-600">
+                <div className="p-3 bg-red-100 rounded-xl">
+                  <ShieldAlert className="w-6 h-6 text-red-600" />
+                </div>
+                <div>
+                  <h3 className="font-extrabold text-slate-900 text-base">Konfirmasi Reset Database</h3>
+                  <p className="text-xs text-slate-500">Tindakan ini tidak dapat dibatalkan</p>
+                </div>
+              </div>
+
+              <div className="bg-red-50 border border-red-100 p-3.5 rounded-xl text-xs text-red-900 space-y-1">
+                <p className="font-semibold leading-relaxed">
+                  PERINGATAN SANGAT PENTING: Apakah Anda benar-benar yakin ingin mereset basis data ke kondisi awal semula?
+                </p>
+                <p className="text-[11px] text-red-700">
+                  Seluruh data katalog barang, transaksi keluar/masuk, supplier, dan logs akan dikembalikan ke data awal.
+                </p>
+              </div>
+
+              <div className="flex justify-end gap-2.5 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setShowResetModal(false)}
+                  className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl text-xs cursor-pointer transition-colors"
+                >
+                  Batal
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowResetModal(false);
+                    onResetDatabase();
+                  }}
+                  className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white font-bold rounded-xl text-xs cursor-pointer shadow-md shadow-red-600/20 transition-all"
+                >
+                  Ya, Setel Ulang Database
+                </button>
+              </div>
             </div>
           </div>
         )}

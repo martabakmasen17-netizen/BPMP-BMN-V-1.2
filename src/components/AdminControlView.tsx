@@ -54,6 +54,11 @@ export default function AdminControlView({
   const [editingUser, setEditingUser] = useState<string | null>(null);
   const [editFormData, setEditFormData] = useState<Partial<UserAccount>>({});
 
+  // Modal States
+  const [userToDelete, setUserToDelete] = useState<string | null>(null);
+  const [showAdminProtectModal, setShowAdminProtectModal] = useState<boolean>(false);
+  const [showMigrateConfirmModal, setShowMigrateConfirmModal] = useState<boolean>(false);
+
   // Helper function to safely format dates without throwing RangeError
   const formatDateSafe = (dateStr?: string) => {
     if (!dateStr) return '-';
@@ -106,30 +111,42 @@ export default function AdminControlView({
     setEditFormData({});
   };
 
-  const handleMigrate = () => {
-    const confirmMsg = "PERINGATAN! Proses ini akan mengosongkan seluruh data Transaksi Masuk, Keluar, Riwayat, Audit Log, dan Notifikasi di sistem utama. Apakah Anda yakin ingin membuat sesi backup baru dan melanjutkan migrasi?";
-    if (window.confirm(confirmMsg)) {
-      // Create a simulated downloadable backup file (CSV format combined)
-      let csvContent = "Data Backup Logistik BMN - " + new Date().toLocaleDateString('id-ID') + "\n\n";
-      csvContent += "RIWAYAT TRANSAKSI:\n";
-      safeRiwayatList.forEach(r => {
-        csvContent += `${r.tanggal},${r.tipe},${r.namaBarang},${r.jumlah},${r.petugas},${r.keterangan}\n`;
-      });
-      
-      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.setAttribute('href', url);
-      link.setAttribute('download', `Backup_BMN_${new Date().getTime()}.csv`);
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-
-      if (onMigrateBackup) {
-        onMigrateBackup();
-      }
-      alert('Backup berhasil diunduh dan database log transaksi telah dimigrasi/dibersihkan. Data Master Barang tetap aman.');
+  const handleDeleteAccountClick = (username: string) => {
+    if (username === 'admin') {
+      setShowAdminProtectModal(true);
+      return;
     }
+    setUserToDelete(username);
+  };
+
+  const handleConfirmDeleteUser = () => {
+    if (userToDelete) {
+      onDeleteAccount(userToDelete);
+      setUserToDelete(null);
+    }
+  };
+
+  const handleConfirmMigrate = () => {
+    // Create a simulated downloadable backup file (CSV format combined)
+    let csvContent = "Data Backup Logistik BMN - " + new Date().toLocaleDateString('id-ID') + "\n\n";
+    csvContent += "RIWAYAT TRANSAKSI:\n";
+    safeRiwayatList.forEach(r => {
+      csvContent += `${r.tanggal},${r.tipe},${r.namaBarang},${r.jumlah},${r.petugas},${r.keterangan}\n`;
+    });
+    
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.setAttribute('href', url);
+    link.setAttribute('download', `Backup_BMN_${new Date().getTime()}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+
+    if (onMigrateBackup) {
+      onMigrateBackup();
+    }
+    setShowMigrateConfirmModal(false);
   };
 
   return (
@@ -471,11 +488,7 @@ export default function AdminControlView({
                                       <Edit className="w-3.5 h-3.5" />
                                     </button>
                                     <button
-                                      onClick={() => {
-                                        if (window.confirm(`Yakin ingin menghapus akun ${usernameStr}?`)) {
-                                          onDeleteAccount(usernameStr);
-                                        }
-                                      }}
+                                      onClick={() => handleDeleteAccountClick(usernameStr)}
                                       className="p-1.5 bg-rose-50 hover:bg-rose-100 text-rose-600 border border-rose-200 rounded-lg cursor-pointer transition-colors shadow-sm"
                                       title="Hapus Akun"
                                     >
@@ -695,11 +708,7 @@ export default function AdminControlView({
                                   <Edit className="w-3.5 h-3.5" /> Edit Akun
                                 </button>
                                 <button
-                                  onClick={() => {
-                                    if (window.confirm(`Yakin ingin menghapus akun ${usernameStr}?`)) {
-                                      onDeleteAccount(usernameStr);
-                                    }
-                                  }}
+                                  onClick={() => handleDeleteAccountClick(usernameStr)}
                                   className="py-1.5 px-3 bg-rose-50 hover:bg-rose-100 text-rose-700 rounded-xl font-bold text-xs flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
                                   title="Hapus Akun"
                                 >
@@ -808,7 +817,7 @@ export default function AdminControlView({
                   <div className="pt-4 flex items-center justify-end">
                     <button
                       type="button"
-                      onClick={handleMigrate}
+                      onClick={() => setShowMigrateConfirmModal(true)}
                       className="px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl cursor-pointer flex items-center gap-2 shadow-md shadow-indigo-600/20 transition-all text-xs"
                     >
                       <Download className="w-4 h-4" /> 
@@ -857,6 +866,118 @@ export default function AdminControlView({
           )}
         </div>
       </div>
+
+      {/* MODAL KONFIRMASI HAPUS AKUN */}
+      {userToDelete && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-xs p-4 animate-in fade-in duration-150">
+          <div className="bg-white rounded-2xl max-w-md w-full p-6 space-y-4 shadow-2xl border border-slate-100">
+            <div className="flex items-center gap-3 text-rose-600">
+              <div className="p-3 bg-rose-100 rounded-xl">
+                <Trash2 className="w-6 h-6 text-rose-600" />
+              </div>
+              <div>
+                <h3 className="font-extrabold text-slate-900 text-base">Konfirmasi Hapus Akun</h3>
+                <p className="text-xs text-slate-500">Tindakan ini tidak dapat dibatalkan</p>
+              </div>
+            </div>
+
+            <div className="bg-rose-50 border border-rose-100 p-3.5 rounded-xl text-xs text-rose-900 space-y-1">
+              <p className="font-semibold leading-relaxed">
+                Apakah Anda yakin ingin menghapus akun pegawai <span className="font-bold font-mono underline">{userToDelete}</span> secara permanen dari basis data?
+              </p>
+              <p className="text-[11px] text-rose-700">
+                Pegawai yang bersangkutan tidak akan bisa lagi masuk ke sistem logistik BMN.
+              </p>
+            </div>
+
+            <div className="flex justify-end gap-2.5 pt-2">
+              <button
+                type="button"
+                onClick={() => setUserToDelete(null)}
+                className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl text-xs cursor-pointer transition-colors"
+              >
+                Batal
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmDeleteUser}
+                className="px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white font-bold rounded-xl text-xs cursor-pointer shadow-md shadow-rose-600/20 transition-all"
+              >
+                Ya, Hapus Akun
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL PROTEKSI AKUN ADMIN */}
+      {showAdminProtectModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-xs p-4 animate-in fade-in duration-150">
+          <div className="bg-white rounded-2xl max-w-md w-full p-6 space-y-4 shadow-2xl border border-slate-100">
+            <div className="flex items-center gap-3 text-amber-600">
+              <div className="p-3 bg-amber-100 rounded-xl">
+                <AlertCircle className="w-6 h-6 text-amber-600" />
+              </div>
+              <div>
+                <h3 className="font-extrabold text-slate-900 text-base">Proteksi Akun Administrator</h3>
+                <p className="text-xs text-slate-500">Sistem Otorisasi BMN</p>
+              </div>
+            </div>
+
+            <p className="text-xs text-slate-600 leading-relaxed bg-amber-50 border border-amber-200 p-3.5 rounded-xl font-medium">
+              Akun <span className="font-bold font-mono text-slate-900">admin</span> adalah akun Administrator Utama sistem dan tidak dapat dihapus demi keamanan operasional lembaga.
+            </p>
+
+            <div className="flex justify-end pt-2">
+              <button
+                type="button"
+                onClick={() => setShowAdminProtectModal(false)}
+                className="px-5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl text-xs cursor-pointer transition-colors"
+              >
+                Saya Mengerti
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL KONFIRMASI MIGRASI DATABASE */}
+      {showMigrateConfirmModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-xs p-4 animate-in fade-in duration-150">
+          <div className="bg-white rounded-2xl max-w-md w-full p-6 space-y-4 shadow-2xl border border-slate-100">
+            <div className="flex items-center gap-3 text-indigo-600">
+              <div className="p-3 bg-indigo-100 rounded-xl">
+                <Database className="w-6 h-6 text-indigo-600" />
+              </div>
+              <div>
+                <h3 className="font-extrabold text-slate-900 text-base">Konfirmasi Migrasi Database</h3>
+                <p className="text-xs text-slate-500">Backup & Pembersihan Log</p>
+              </div>
+            </div>
+
+            <p className="text-xs text-slate-600 leading-relaxed bg-indigo-50 border border-indigo-100 p-3.5 rounded-xl">
+              Proses ini akan mengunduh backup CSV dan mengosongkan log transaksi transaksional. <strong className="text-slate-900">Data Master Barang tetap utuh.</strong>
+            </p>
+
+            <div className="flex justify-end gap-2.5 pt-2">
+              <button
+                type="button"
+                onClick={() => setShowMigrateConfirmModal(false)}
+                className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl text-xs cursor-pointer transition-colors"
+              >
+                Batal
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmMigrate}
+                className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl text-xs cursor-pointer shadow-md shadow-indigo-600/20 transition-all"
+              >
+                Lanjutkan Migrasi
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
