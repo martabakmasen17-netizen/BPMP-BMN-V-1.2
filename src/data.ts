@@ -42,7 +42,7 @@ export const DEFAULT_SETTINGS: Settings = {
   folderImagesId: '1dr_images_bpmp_sumsel_folder',
   folderReportsId: '1dr_reports_bpmp_sumsel_folder',
   folderBackupId: '1dr_backup_bpmp_sumsel_folder',
-  spreadsheetId: '',
+  spreadsheetId: '1ss_bpmp_sumsel_inventory_database',
   bilaStokRendahNotif: true,
   bilaStokHabisNotif: true,
   konfirmasiOtomatisKeluar: true

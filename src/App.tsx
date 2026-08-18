@@ -66,7 +66,32 @@ import {
   DriveFileItem
 } from './types';
 
-const INITIAL_ACCOUNTS: UserAccount[] = [];
+const INITIAL_ACCOUNTS: UserAccount[] = [
+  {
+    username: 'admin',
+    nama: 'Ilham Muharrama',
+    nip: '-',
+    jabatan: 'Magang/KP',
+    tugas: 'Petugas BMN & Pengembang Sistem SILAP',
+    telepon: '08981741680',
+    password: 'admin',
+    role: 'Administrator',
+    status: 'Disetujui',
+    registeredAt: '2026-07-15T08:00:00Z'
+  },
+  {
+    username: 'petugas',
+    nama: 'Roni Setiawan',
+    nip: '198804152014021003',
+    jabatan: 'Pengolah Data dan Informasi',
+    tugas: 'PJ BMN',
+    telepon: '081271234567',
+    password: 'bmn',
+    role: 'Petugas BMN',
+    status: 'Disetujui',
+    registeredAt: '2026-07-18T08:00:00Z'
+  }
+];
 
 export default function App() {
   const [activeTab, setActiveTab] = useState<ActiveTab>('dashboard');
@@ -214,7 +239,7 @@ export default function App() {
           if (Array.isArray(data.Riwayat)) setRiwayatList(data.Riwayat.map(fixTransId));
 
           if (Array.isArray(data.AuditLog)) setAuditLogsList(data.AuditLog);
-          if (Array.isArray(data.Accounts)) {
+          if (Array.isArray(data.Accounts) && data.Accounts.length > 0) {
             const updatedAccs = data.Accounts.map((a: UserAccount) =>
               a.username === 'admin'
                 ? { ...a, nama: 'Ilham Muharrama', nip: '-', jabatan: 'Magang/KP', telepon: '08981741680' }

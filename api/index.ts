@@ -148,11 +148,16 @@ app.get("/api/sync", async (req, res) => {
     }
 
     // 2. Serve from cache if available and force refresh was not requested
-    if (memoryCache && req.query.force !== '1' && (now - lastRemoteFetchTime < 15000)) {
+    if (memoryCache && req.query.force !== '1') {
       return res.json(memoryCache);
     }
 
-    // 3. Batch Fetch from Google Sheets API using batchGet (1 HTTP Call instead of 14)
+    // 3. Throttle remote calls (min 15 seconds interval even if force=1)
+    if (memoryCache && (now - lastRemoteFetchTime < 15000)) {
+      return res.json(memoryCache);
+    }
+
+    // 4. Batch Fetch from Google Sheets API using batchGet (1 HTTP Call instead of 14)
     try {
       // Get sheet list metadata if not cached
       if (!cachedExistingSheets) {
@@ -178,18 +183,20 @@ app.get("/api/sync", async (req, res) => {
           if (vr && vr.values) {
             allData[sheetName] = sheetDataToJson(vr.values);
           } else {
-            allData[sheetName] = [];
+            allData[sheetName] = memoryCache?.[sheetName] || [];
           }
         });
 
         // Fill remaining empty sheets
         SHEET_NAMES.forEach(name => {
-          if (!allData[name]) allData[name] = [];
+          if (!allData[name]) allData[name] = memoryCache?.[name] || [];
         });
 
         lastRemoteFetchTime = now;
-        memoryCache = allData;
-        saveToLocalFile(allData);
+        if (Object.keys(allData).length > 0) {
+          memoryCache = allData;
+          saveToLocalFile(allData);
+        }
       }
     } catch (sheetErr: any) {
       const isQuotaError = sheetErr.status === 429 || 
