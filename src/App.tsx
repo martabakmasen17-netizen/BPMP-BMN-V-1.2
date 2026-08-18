@@ -112,10 +112,6 @@ export default function App() {
         const now = new Date().getTime();
         // 12 hours = 12 * 60 * 60 * 1000 = 43200000 ms
         if (now - loginTime < 43200000) {
-          const freshUser = INITIAL_ACCOUNTS.find(a => a.username === parsed.user.username);
-          if (freshUser) {
-             return freshUser;
-          }
           return parsed.user;
         } else {
           localStorage.removeItem('bpmp_bmn_session');
@@ -239,13 +235,17 @@ export default function App() {
           if (Array.isArray(data.Riwayat)) setRiwayatList(data.Riwayat.map(fixTransId));
 
           if (Array.isArray(data.AuditLog)) setAuditLogsList(data.AuditLog);
-          if (Array.isArray(data.Accounts) && data.Accounts.length > 0) {
-            const updatedAccs = data.Accounts.map((a: UserAccount) =>
-              a.username === 'admin'
-                ? { ...a, nama: 'Ilham Muharrama', nip: '-', jabatan: 'Magang/KP', telepon: '08981741680' }
-                : a
-            );
-            setAccounts(updatedAccs);
+          if (Array.isArray(data.Accounts)) {
+            if (data.Accounts.length > 0) {
+              const updatedAccs = data.Accounts.map((a: UserAccount) =>
+                a.username === 'admin'
+                  ? { ...a, nama: 'Ilham Muharrama', nip: '-', jabatan: 'Magang/KP', telepon: '08981741680' }
+                  : a
+              );
+              setAccounts(updatedAccs);
+            } else {
+              setAccounts(INITIAL_ACCOUNTS);
+            }
           }
           if (Array.isArray(data.Settings) && data.Settings.length > 0) setSettings(data.Settings[0]);
           if (Array.isArray(data.Notifications)) {

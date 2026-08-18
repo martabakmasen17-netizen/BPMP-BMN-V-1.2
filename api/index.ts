@@ -152,8 +152,8 @@ app.get("/api/sync", async (req, res) => {
       return res.json(memoryCache);
     }
 
-    // 3. Throttle remote calls (min 15 seconds interval even if force=1)
-    if (memoryCache && (now - lastRemoteFetchTime < 15000)) {
+    // 3. Throttle remote calls unless force=1 is requested
+    if (req.query.force !== '1' && memoryCache && (now - lastRemoteFetchTime < 5000)) {
       return res.json(memoryCache);
     }
 
@@ -180,23 +180,17 @@ app.get("/api/sync", async (req, res) => {
         const valueRanges = batchResponse.data.valueRanges || [];
         sheetsToFetch.forEach((sheetName, idx) => {
           const vr = valueRanges[idx];
-          if (vr && vr.values) {
-            allData[sheetName] = sheetDataToJson(vr.values);
-          } else {
-            allData[sheetName] = memoryCache?.[sheetName] || [];
-          }
+          allData[sheetName] = sheetDataToJson(vr?.values || []);
         });
 
         // Fill remaining empty sheets
         SHEET_NAMES.forEach(name => {
-          if (!allData[name]) allData[name] = memoryCache?.[name] || [];
+          if (!allData[name]) allData[name] = [];
         });
 
         lastRemoteFetchTime = now;
-        if (Object.keys(allData).length > 0) {
-          memoryCache = allData;
-          saveToLocalFile(allData);
-        }
+        memoryCache = allData;
+        saveToLocalFile(allData);
       }
     } catch (sheetErr: any) {
       const isQuotaError = sheetErr.status === 429 || 
