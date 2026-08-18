@@ -84,7 +84,6 @@ export interface BarangKeluar {
   statusPersetujuan: 'Pending' | 'Disetujui' | 'Ditolak';
   fileDokumen?: string;
   fileData?: string;
-  driveLink?: string;
   catatan: string;
   isSusulan?: boolean; // Penanda apakah transaksi ini merupakan data susulan/backdated
   keteranganSusulan?: string; // Alasan/keterangan pencatatan susulan
@@ -94,15 +93,12 @@ export interface BarangKeluar {
 export interface DriveFileItem {
   id: string;
   name: string;
-  folder: 'Reports' | 'Images' | 'QRCode' | 'Backup' | 'Dokumen';
+  folder: 'Reports' | 'Images' | 'QRCode' | 'Backup';
   size: string;
   type: string;
   uploadedAt: string;
   uploadedBy: string;
   dataUrl?: string;
-  webViewLink?: string;
-  fileId?: string;
-  status?: 'Tersinkron ke Google Drive' | 'Tersimpan di Cloud Storage';
 }
 
 export interface Riwayat {
@@ -173,9 +169,6 @@ export interface Settings {
   folderDokumenId?: string;
   folderBackupId: string;
   spreadsheetId: string;
-  serviceAccountEmail?: string;
-  serviceAccountPrivateKey?: string;
-  gasUploadUrl?: string;
   bilaStokRendahNotif: boolean;
   bilaStokHabisNotif: boolean;
   konfirmasiOtomatisKeluar?: boolean;

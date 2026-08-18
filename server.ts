@@ -5,7 +5,7 @@ import apiApp from "./api/index.ts";
 
 async function startServer() {
   const app = express();
-  const PORT = 3000;
+  const PORT = process.env.PORT || 3000;
 
   // Gunakan API routes dari api/index.ts
   app.use(apiApp);
@@ -26,7 +26,7 @@ async function startServer() {
     });
   }
 
-  app.listen(PORT, "0.0.0.0", () => {
+  app.listen(PORT, () => {
     console.log(`Server running on port ${PORT}`);
   });
 }
