@@ -187,25 +187,46 @@ export default function App() {
   const [showSyncSuccess, setShowSyncSuccess] = useState(false);
   const [syncError, setSyncError] = useState<string | null>(null);
   const firstLoadRef = React.useRef(true);
-  const skipNextSaveRef = React.useRef(false);
 
+  // Sync state tracking flags to avoid race conditions & state loops
+  const isFetchingRef = React.useRef(false);
+  const isDirtyRef = React.useRef(false);
+  const isSavingRef = React.useRef(false);
   const serverVersionRef = React.useRef(0);
+
+  const markDirty = () => {
+    isDirtyRef.current = true;
+  };
+
+  const updateLocalCache = (cacheData: Record<string, any>) => {
+    try {
+      Object.entries(cacheData).forEach(([key, val]) => {
+        if (val !== undefined) {
+          localStorage.setItem('bpmp_bmn_prod_clean_v4_cache_' + key, JSON.stringify(val));
+        }
+      });
+    } catch (e) {
+      console.error('Failed to update local cache:', e);
+    }
+  };
 
   // Load from Sheets on mount and poll periodically
   React.useEffect(() => {
     const fetchData = async (silent = false, force = false) => {
       try {
+        isFetchingRef.current = true;
         if (!silent) setIsSyncing(true);
         const url = force ? '/api/sync?force=1' : '/api/sync';
         const res = await fetch(url);
         if (res.ok) {
           const data = await res.json();
-          skipNextSaveRef.current = true;
+          if (typeof data.version === 'number') {
+            serverVersionRef.current = data.version;
+          }
           
           const rawBarang = Array.isArray(data.Barang) ? data.Barang : [];
           // MIGRASI STRUKTUR PROFESIONAL: Pastikan ID / Kode Barang unik secara global dengan menggabungkan Kategori + Sequence
           const migratedBarang = rawBarang.map((b: Barang) => {
-             // Jika id masih format lama yang hanya sequence (misal "000001") dan tidak ada tanda hubung, kita perbarui
              if (b.id && !b.id.includes('-') && b.kategoriId) {
                return { ...b, id: `${b.kategoriId}-${b.id}` };
              }
@@ -214,7 +235,6 @@ export default function App() {
           
           const fixTransId = (t: any) => {
              if (t.barangId && !t.barangId.includes('-')) {
-                // Temukan barang yang cocok berdasarkan nama untuk disambiguasi jika ID lama bentrok
                 const matched = migratedBarang.find(b => b.nama === t.namaBarang && b.id.endsWith(`-${t.barangId}`));
                 if (matched) {
                    return { ...t, barangId: matched.id };
@@ -277,6 +297,26 @@ export default function App() {
               return remoteNotifs;
             });
           }
+
+          // Update local cache
+          updateLocalCache({
+            accounts: data.Accounts,
+            barangList: migratedBarang,
+            kategoriList: data.Kategori,
+            supplierList: data.Supplier,
+            unitList: data.Unit,
+            satuanList: data.Satuan,
+            pegawaiList: data.Pegawai,
+            barangMasukList: data.BarangMasuk,
+            barangKeluarList: data.BarangKeluar,
+            riwayatList: data.Riwayat,
+            auditLogsList: data.AuditLog,
+            notificationsList: data.Notifications,
+            settings: data.Settings?.[0]
+          });
+
+          // Server state is loaded; reset dirty flag
+          isDirtyRef.current = false;
         } else {
           if (!silent) {
             const errData = await res.json();
@@ -288,9 +328,10 @@ export default function App() {
         if (!silent) setSyncError(`Gagal memuat data: ${e.message}`);
       } finally {
         setIsLoading(false);
-        if (!silent) {
-           setIsSyncing(false);
-        }
+        if (!silent) setIsSyncing(false);
+        setTimeout(() => {
+          isFetchingRef.current = false;
+        }, 300);
       }
     };
     
@@ -299,15 +340,17 @@ export default function App() {
     
     // Realtime polling endpoint
     const pollVersion = async () => {
+      // Do NOT overwrite local state if user is editing or currently saving
+      if (isDirtyRef.current || isSavingRef.current || isFetchingRef.current) return;
+
       try {
         const res = await fetch('/api/sync/version');
         if (res.ok) {
           const data = await res.json();
-          // If server version is greater than our known version, we need to fetch updates!
+          // If server version is greater than our known version, fetch updates
           if (data.version > serverVersionRef.current) {
             serverVersionRef.current = data.version;
-            // Fetch updates silently from server memory cache
-            fetchData(true, false);
+            await fetchData(true, false);
           }
         }
       } catch(e) {}
@@ -346,30 +389,33 @@ export default function App() {
       firstLoadRef.current = false;
       return; 
     }
-    if (skipNextSaveRef.current) {
-      skipNextSaveRef.current = false;
+
+    // CRITICAL: Skip save if currently fetching from server OR if state has no local mutations
+    if (isFetchingRef.current || !isDirtyRef.current) {
       return;
     }
 
-    
     // Save to local cache first for fast load on next refresh
-    try {
-      localStorage.setItem('bpmp_bmn_prod_clean_v4_cache_accounts', JSON.stringify(accounts));
-      localStorage.setItem('bpmp_bmn_prod_clean_v4_cache_barangList', JSON.stringify(barangList));
-      localStorage.setItem('bpmp_bmn_prod_clean_v4_cache_kategoriList', JSON.stringify(kategoriList));
-      localStorage.setItem('bpmp_bmn_prod_clean_v4_cache_supplierList', JSON.stringify(supplierList));
-      localStorage.setItem('bpmp_bmn_prod_clean_v4_cache_unitList', JSON.stringify(unitList));
-      localStorage.setItem('bpmp_bmn_prod_clean_v4_cache_satuanList', JSON.stringify(satuanList));
-      localStorage.setItem('bpmp_bmn_prod_clean_v4_cache_pegawaiList', JSON.stringify(pegawaiList));
-      localStorage.setItem('bpmp_bmn_prod_clean_v4_cache_barangMasukList', JSON.stringify(barangMasukList));
-      localStorage.setItem('bpmp_bmn_prod_clean_v4_cache_barangKeluarList', JSON.stringify(barangKeluarList));
-      localStorage.setItem('bpmp_bmn_prod_clean_v4_cache_riwayatList', JSON.stringify(riwayatList));
-      localStorage.setItem('bpmp_bmn_prod_clean_v4_cache_auditLogsList', JSON.stringify(auditLogsList));
-      localStorage.setItem('bpmp_bmn_prod_clean_v4_cache_notificationsList', JSON.stringify(notificationsList));
-      localStorage.setItem('bpmp_bmn_prod_clean_v4_cache_settings', JSON.stringify(settings));
-    } catch(e) { console.error('Failed to cache data', e); }
+    updateLocalCache({
+      accounts,
+      barangList,
+      kategoriList,
+      supplierList,
+      unitList,
+      satuanList,
+      pegawaiList,
+      barangMasukList,
+      barangKeluarList,
+      riwayatList,
+      auditLogsList,
+      notificationsList,
+      settings
+    });
 
-const handler = setTimeout(async () => {
+    const handler = setTimeout(async () => {
+      if (isFetchingRef.current || !isDirtyRef.current) return;
+
+      isSavingRef.current = true;
       setIsSyncing(true);
       setShowSyncSuccess(false);
       setSyncError(null);
@@ -430,11 +476,20 @@ const handler = setTimeout(async () => {
           const errData = await res.json();
           throw new Error(errData.error || 'Server error');
         }
+
+        const resData = await res.json();
+        if (typeof resData.version === 'number') {
+          serverVersionRef.current = resData.version;
+        }
+
+        // Clean local dirty status
+        isDirtyRef.current = false;
         saveOk = true;
       } catch (e: any) {
         console.error("Gagal menyimpan ke spreadsheet:", e);
         setSyncError(`Gagal menyimpan: ${e.message}`);
       } finally {
+        isSavingRef.current = false;
         setIsSyncing(false);
         if (saveOk) {
           setShowSyncSuccess(true);
@@ -443,7 +498,7 @@ const handler = setTimeout(async () => {
           }, 1800);
         }
       }
-    }, 1500); // Debounce 1.5 detik
+    }, 1000); // Debounce 1.0 detik
 
     return () => clearTimeout(handler);
   }, [
@@ -459,6 +514,7 @@ const handler = setTimeout(async () => {
 
   // Audit Logging Helper
   const writeAuditLog = (aksi: string, detail: string) => {
+    markDirty();
     const newLog: AuditLog = {
       id: `LOG-${Date.now().toString().slice(-6)}`,
       tanggal: new Date().toISOString(),
@@ -479,6 +535,7 @@ const handler = setTimeout(async () => {
     transId?: string,
     isAdminOnly?: boolean
   ) => {
+    markDirty();
     const newNotif: SystemNotification = {
       id: `NOT-${Date.now().toString().slice(-6)}`,
       tipe,
@@ -1046,6 +1103,7 @@ const handler = setTimeout(async () => {
   };
 
   const handleClearNotifications = () => {
+    markDirty();
     setNotificationsList([]);
   };
 
@@ -1083,6 +1141,7 @@ const handler = setTimeout(async () => {
 
   const handleMarkNotificationRead = (id: string) => {
     if (!currentUser) return;
+    markDirty();
     setNotificationsList(prev => prev.map(n => (n.id === id ? markNotificationAsReadForUser(n, currentUser.username) : n)));
   };
 

@@ -136,7 +136,7 @@ app.get("/api/sync", async (req, res) => {
   try {
     const now = Date.now();
     
-    // Always load local file as fallback baseline
+    // Always load local file as fallback baseline if memoryCache is null
     const localData = loadFromLocalFile();
     if (localData && !memoryCache) {
       memoryCache = localData;
@@ -144,17 +144,17 @@ app.get("/api/sync", async (req, res) => {
 
     // 1. If in quota cooldown period or spreadsheet ID is missing, serve local memory/file data immediately
     if (!SPREADSHEET_ID || now < rateLimitCooldownUntil) {
-      return res.json(memoryCache || localData || {});
+      return res.json({ ...(memoryCache || localData || {}), version: memoryVersion });
     }
 
-    // 2. Serve from cache if available and force refresh was not requested
+    // 2. Serve from memory cache if available and force refresh was not requested
     if (memoryCache && req.query.force !== '1') {
-      return res.json(memoryCache);
+      return res.json({ ...memoryCache, version: memoryVersion });
     }
 
     // 3. Throttle remote calls unless force=1 is requested
     if (req.query.force !== '1' && memoryCache && (now - lastRemoteFetchTime < 5000)) {
-      return res.json(memoryCache);
+      return res.json({ ...memoryCache, version: memoryVersion });
     }
 
     // 4. Batch Fetch from Google Sheets API using batchGet (1 HTTP Call instead of 14)
@@ -190,6 +190,7 @@ app.get("/api/sync", async (req, res) => {
 
         lastRemoteFetchTime = now;
         memoryCache = allData;
+        memoryVersion++;
         saveToLocalFile(allData);
       }
     } catch (sheetErr: any) {
@@ -206,11 +207,11 @@ app.get("/api/sync", async (req, res) => {
       }
     }
 
-    res.json(memoryCache || localData || {});
+    res.json({ ...(memoryCache || localData || {}), version: memoryVersion });
   } catch (error: any) {
     console.error("Gagal mengambil data:", error);
     const localData = loadFromLocalFile();
-    res.json(localData || memoryCache || {});
+    res.json({ ...(localData || memoryCache || {}), version: memoryVersion });
   }
 });
 
@@ -301,7 +302,7 @@ app.post("/api/sync", async (req, res) => {
       }
     }
 
-    res.json({ success: true, message: "Data berhasil disinkronisasi dan disimpan dengan aman." });
+    res.json({ success: true, version: memoryVersion, message: "Data berhasil disinkronisasi dan disimpan dengan aman." });
   } catch (error: any) {
     console.error("Gagal menyimpan data:", error);
     res.status(500).json({ error: error.message });
