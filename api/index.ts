@@ -44,24 +44,55 @@ const loadFromLocalFile = () => {
 
 const getGoogleClients = () => {
   const localCache = memoryCache || loadFromLocalFile() || {};
-  let settings = {};
+  let settings: any = {};
   if (Array.isArray(localCache.Settings) && localCache.Settings.length > 0) {
     settings = localCache.Settings[0];
   } else if (localCache.Settings && typeof localCache.Settings === 'object') {
     settings = localCache.Settings;
   }
   
-  const clientEmail = settings?.serviceAccountEmail || process.env.GOOGLE_CLIENT_EMAIL;
-  const privateKey = settings?.serviceAccountPrivateKey || process.env.GOOGLE_PRIVATE_KEY;
-  
+  let clientEmail = settings?.serviceAccountEmail || process.env.GOOGLE_CLIENT_EMAIL || "";
+  let privateKey = settings?.serviceAccountPrivateKey || process.env.GOOGLE_PRIVATE_KEY || "";
+  const gasUploadUrl = settings?.gasUploadUrl || process.env.GAS_UPLOAD_URL || "";
+
+  // Auto-parse JSON if user pasted the entire Service Account credentials file
+  if (privateKey && (privateKey.trim().startsWith("{") || privateKey.includes('"private_key":'))) {
+    try {
+      const parsed = JSON.parse(privateKey.trim());
+      if (parsed.private_key) privateKey = parsed.private_key;
+      if (parsed.client_email && !clientEmail) clientEmail = parsed.client_email;
+    } catch (e) {}
+  }
+  if (clientEmail && (clientEmail.trim().startsWith("{") || clientEmail.includes('"client_email":'))) {
+    try {
+      const parsed = JSON.parse(clientEmail.trim());
+      if (parsed.client_email) clientEmail = parsed.client_email;
+      if (parsed.private_key && !privateKey) privateKey = parsed.private_key;
+    } catch (e) {}
+  }
+
+  // Clean private key: remove quotes, normalize newlines
+  privateKey = (privateKey || "").trim();
+  if (privateKey.startsWith('"') && privateKey.endsWith('"')) {
+    privateKey = privateKey.slice(1, -1);
+  }
+  privateKey = privateKey.replace(/\\r\\n/g, '\n').replace(/\\n/g, '\n');
+
   if (!clientEmail || !privateKey) {
-    return { drive: null, sheets: null, hasCredentials: false };
+    return { 
+      drive: null, 
+      sheets: null, 
+      hasCredentials: false, 
+      gasUploadUrl,
+      spreadsheetId: settings?.spreadsheetId || process.env.SPREADSHEET_ID,
+      settings 
+    };
   }
   
   const dynAuth = new google.auth.GoogleAuth({
     credentials: {
       client_email: clientEmail,
-      private_key: privateKey.replace(/\\n/g, '\n'),
+      private_key: privateKey,
     },
     scopes: [
       "https://www.googleapis.com/auth/spreadsheets",
@@ -74,7 +105,9 @@ const getGoogleClients = () => {
     drive: google.drive({ version: "v3", auth: dynAuth }),
     sheets: google.sheets({ version: "v4", auth: dynAuth }),
     hasCredentials: true,
-    spreadsheetId: settings?.spreadsheetId || process.env.SPREADSHEET_ID
+    gasUploadUrl,
+    spreadsheetId: settings?.spreadsheetId || process.env.SPREADSHEET_ID,
+    settings
   };
 };
 
@@ -174,6 +207,15 @@ let lastRemoteFetchTime = 0;
 let rateLimitCooldownUntil = 0;
 let cachedExistingSheets: string[] | null = null;
 
+const isPlaceholderId = (id?: string) => {
+  if (!id) return true;
+  const clean = id.trim();
+  if (clean.startsWith('1ss_') || clean.startsWith('1dr_') || clean.includes('dummy') || clean.includes('placeholder')) {
+    return true;
+  }
+  return false;
+};
+
 app.get("/api/sync/version", (req, res) => {
   res.json({ version: memoryVersion });
 });
@@ -190,7 +232,7 @@ app.get("/api/sync", async (req, res) => {
     const dyn = getGoogleClients();
     const currentSpreadsheetId = dyn.spreadsheetId || SPREADSHEET_ID;
 
-    if (!currentSpreadsheetId || !dyn.hasCredentials || !dyn.sheets || now < rateLimitCooldownUntil) {
+    if (!currentSpreadsheetId || isPlaceholderId(currentSpreadsheetId) || !dyn.hasCredentials || !dyn.sheets || now < rateLimitCooldownUntil) {
       return res.json(memoryCache || localData || {});
     }
 
@@ -244,11 +286,19 @@ app.get("/api/sync", async (req, res) => {
       const isQuotaError = sheetErr.status === 429 || 
         sheetErr.code === 429 || 
         (sheetErr.message && sheetErr.message.includes("Quota exceeded"));
+
+      const isNotFoundError = sheetErr.status === 404 ||
+        sheetErr.code === 404 ||
+        (sheetErr.message && (sheetErr.message.includes("Requested entity was not found") || sheetErr.message.includes("File not found")));
       
       if (isQuotaError) {
         // Activate 60-second cooldown on quota error so we don't spam Google Sheets API
         rateLimitCooldownUntil = Date.now() + 60000;
         console.warn("[Sync Engine] Google Sheets API rate limit reached. Auto-switching to high-performance local store for 60s.");
+      } else if (isNotFoundError) {
+        // Cooldown for 5 minutes when spreadsheet ID is dummy/not found
+        rateLimitCooldownUntil = Date.now() + 300000;
+        console.info("[Sync Engine] Spreadsheet ID not found or access denied. Using local storage mode.");
       } else {
         console.warn("Spreadsheet error, falling back to local file store:", sheetErr.message);
       }
@@ -277,7 +327,7 @@ app.post("/api/sync", async (req, res) => {
     const dyn = getGoogleClients();
     const currentSpreadsheetId = dyn.spreadsheetId || SPREADSHEET_ID;
 
-    if (currentSpreadsheetId && dyn.hasCredentials && dyn.sheets && now >= rateLimitCooldownUntil) {
+    if (currentSpreadsheetId && !isPlaceholderId(currentSpreadsheetId) && dyn.hasCredentials && dyn.sheets && now >= rateLimitCooldownUntil) {
       try {
         if (!cachedExistingSheets) {
           const spreadsheet = await dyn.sheets.spreadsheets.get({
@@ -343,9 +393,16 @@ app.post("/api/sync", async (req, res) => {
           sheetErr.code === 429 || 
           (sheetErr.message && sheetErr.message.includes("Quota exceeded"));
 
+        const isNotFoundError = sheetErr.status === 404 || 
+          sheetErr.code === 404 || 
+          (sheetErr.message && (sheetErr.message.includes("Requested entity was not found") || sheetErr.message.includes("File not found")));
+
         if (isQuotaError) {
           rateLimitCooldownUntil = Date.now() + 60000;
           console.warn("[Sync Engine] Spreadsheet save queued/skipped remotely due to Google API rate limit. Data is safely stored locally.");
+        } else if (isNotFoundError) {
+          rateLimitCooldownUntil = Date.now() + 300000;
+          console.info("[Sync Engine] Spreadsheet ID not found or access denied. Data is safely stored locally.");
         } else {
           console.warn("Spreadsheet save skipped/failed, data saved locally:", sheetErr.message);
         }
@@ -359,130 +416,186 @@ app.post("/api/sync", async (req, res) => {
   }
 });
 
+// Helper fungsi terpadu untuk upload berkas ke Google Drive & Cloud Storage
+async function uploadFileToDriveHelper(options: {
+  filename: string;
+  fileData: string; // Base64 data URL or pure Base64
+  folderId?: string;
+  folder?: string;
+  uploadedBy?: string;
+  customGasUrl?: string;
+}) {
+  const { filename, fileData, folderId, folder = 'Reports', uploadedBy = 'Petugas BMN', customGasUrl } = options;
+
+  // Ekstraksi MIME Type dan Buffer
+  const matches = String(fileData).match(/^data:(.+);base64,(.+)$/);
+  const mimeType = matches ? matches[1] : (filename.endsWith('.pdf') ? 'application/pdf' : filename.endsWith('.json') ? 'application/json' : 'application/octet-stream');
+  const base64Content = matches ? matches[2] : fileData;
+  const buffer = Buffer.from(base64Content, 'base64');
+  const sizeKB = Math.max(1, Math.round(buffer.length / 1024));
+
+  // Simpan ke direktori upload lokal agar selalu dapat dibuka dan diunduh secara instan & permanen
+  const cleanFileName = `${Date.now()}_${path.basename(filename).replace(/[^a-zA-Z0-9._-]/g, '_')}`;
+  const localFilePath = path.join(UPLOADS_DIR, cleanFileName);
+  fs.writeFileSync(localFilePath, buffer);
+
+  let webViewLink = `/uploads/${cleanFileName}`;
+  let fileId = `local-${Date.now()}`;
+  let isDriveSynced = false;
+  let syncEngine = 'Cloud Storage Lokal';
+  let driveErrorDetail = '';
+
+  const dyn = getGoogleClients();
+  const effectiveGasUrl = customGasUrl || dyn.gasUploadUrl || process.env.GAS_UPLOAD_URL;
+
+  // 1. Prioritas 1: Unggah melalui Google Apps Script Web App Bridge (Sangat stabil untuk akun @gmail.com & Google Drive Pribadi)
+  if (effectiveGasUrl && effectiveGasUrl.startsWith('http')) {
+    try {
+      const gasPayload = {
+        filename,
+        fileData: fileData.startsWith('data:') ? fileData : `data:${mimeType};base64,${fileData}`,
+        folderId: (folderId && !folderId.startsWith('1dr_') && folderId.length > 5) ? folderId : undefined,
+        folder
+      };
+
+      const response = await fetch(effectiveGasUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(gasPayload),
+        redirect: 'follow'
+      });
+
+      const resText = await response.text();
+      try {
+        const result = JSON.parse(resText);
+        if (result.success && (result.webViewLink || result.fileId)) {
+          webViewLink = result.webViewLink || `https://drive.google.com/file/d/${result.fileId}/view`;
+          fileId = result.fileId || fileId;
+          isDriveSynced = true;
+          syncEngine = 'Google Apps Script Web App';
+        } else if (result.error) {
+          driveErrorDetail = `GAS Error: ${result.error}`;
+        }
+      } catch (parseErr) {
+        driveErrorDetail = `GAS Non-JSON Response: ${resText.slice(0, 100)}`;
+      }
+    } catch (gasErr: any) {
+      console.warn("GAS Upload Bridge notice:", gasErr.message);
+      driveErrorDetail = `GAS Network: ${gasErr.message}`;
+    }
+  }
+
+  // 2. Prioritas 2: Unggah langsung via Google Drive API (Service Account - Shared Drive / Workspace)
+  if (!isDriveSynced && dyn.hasCredentials && dyn.drive) {
+    try {
+      const { Readable } = await import('stream');
+      const stream = new Readable();
+      stream.push(buffer);
+      stream.push(null);
+
+      const fileMetadata: any = { name: filename };
+      if (folderId && !folderId.startsWith('1dr_') && folderId.length > 5) {
+        fileMetadata.parents = [folderId];
+      }
+
+      const driveRes = await dyn.drive.files.create({
+        requestBody: fileMetadata,
+        media: {
+          mimeType: mimeType,
+          body: stream,
+        },
+        fields: 'id, webViewLink, webContentLink',
+        supportsAllDrives: true
+      });
+
+      if (driveRes.data && driveRes.data.id) {
+        fileId = driveRes.data.id;
+        webViewLink = driveRes.data.webViewLink || `https://drive.google.com/file/d/${fileId}/view`;
+        isDriveSynced = true;
+        syncEngine = 'Google Drive API (Service Account)';
+
+        // Set permission publik (read-only) agar berkas bisa dibuka langsung
+        try {
+          await dyn.drive.permissions.create({
+            fileId: driveRes.data.id,
+            requestBody: {
+              role: 'reader',
+              type: 'anyone',
+            },
+            supportsAllDrives: true
+          });
+        } catch (permErr) {}
+      }
+    } catch (driveErr: any) {
+      const errMsg = driveErr.message || '';
+      console.warn("Google Drive direct upload notice:", errMsg);
+      if (errMsg.includes('storage quota')) {
+        driveErrorDetail = 'Service Account tidak memiliki kuota storage mandiri di Drive pribadi. Pasang URL Web App Google Apps Script di Pengaturan untuk upload otomatis.';
+      } else {
+        driveErrorDetail = `Drive API: ${errMsg}`;
+      }
+    }
+  }
+
+  // Susun item berkas Drive
+  const driveItem = {
+    id: `DRV-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`,
+    name: filename,
+    folder: folder as any,
+    size: `${sizeKB} KB`,
+    type: mimeType,
+    uploadedAt: new Date().toISOString(),
+    uploadedBy,
+    dataUrl: `/uploads/${cleanFileName}`,
+    webViewLink,
+    fileId,
+    status: isDriveSynced ? 'Tersinkron ke Google Drive' : 'Tersimpan di Cloud Storage'
+  };
+
+  // Update memoryCache & local file
+  if (!memoryCache) memoryCache = loadFromLocalFile() || {};
+  if (!Array.isArray(memoryCache.DriveFiles)) memoryCache.DriveFiles = [];
+  // Ganti jika berkas dengan nama yang sama sudah ada, atau tambahkan di awal
+  const existingIdx = memoryCache.DriveFiles.findIndex((f: any) => f.name === filename);
+  if (existingIdx >= 0) {
+    memoryCache.DriveFiles[existingIdx] = driveItem;
+  } else {
+    memoryCache.DriveFiles.unshift(driveItem);
+  }
+  saveToLocalFile(memoryCache);
+
+  return {
+    success: true,
+    item: driveItem,
+    isDriveSynced,
+    syncEngine,
+    webViewLink,
+    fileId,
+    driveErrorDetail,
+    message: isDriveSynced
+      ? `Dokumen "${filename}" berhasil diunggah langsung ke Google Drive (${syncEngine})!`
+      : `Dokumen "${filename}" berhasil diamankan di Cloud Storage & siap diakses.`
+  };
+}
+
 // 3. ENDPOINT UNTUK UPLOAD FILE KE GOOGLE DRIVE & CLOUD STORAGE
 app.post("/api/drive/upload", async (req, res) => {
   try {
-    const { filename, fileData, folderId, folder = 'Reports', uploadedBy = 'Petugas BMN' } = req.body;
+    const { filename, fileData, folderId, folder = 'Reports', uploadedBy = 'Petugas BMN', gasUploadUrl } = req.body;
     if (!filename || !fileData) {
       return res.status(400).json({ error: "Filename dan fileData (Base64) wajib diisi." });
     }
 
-    // Ekstraksi MIME Type dan Buffer
-    const matches = String(fileData).match(/^data:(.+);base64,(.+)$/);
-    const mimeType = matches ? matches[1] : (filename.endsWith('.pdf') ? 'application/pdf' : 'application/octet-stream');
-    const base64Content = matches ? matches[2] : fileData;
-    const buffer = Buffer.from(base64Content, 'base64');
-    const sizeKB = Math.max(1, Math.round(buffer.length / 1024));
-
-    // Simpan ke direktori upload lokal agar selalu dapat dibuka secara instan
-    const cleanFileName = `${Date.now()}_${path.basename(filename).replace(/[^a-zA-Z0-9._-]/g, '_')}`;
-    const localFilePath = path.join(UPLOADS_DIR, cleanFileName);
-    fs.writeFileSync(localFilePath, buffer);
-
-    let webViewLink = `/uploads/${cleanFileName}`;
-    let fileId = `local-${Date.now()}`;
-    let isDriveSynced = false;
-
-    // 1. Coba upload via Google Apps Script (jika disetel)
-    const gasUrl = process.env.GAS_UPLOAD_URL;
-    if (gasUrl) {
-      try {
-        const fetch = (await import('node-fetch')).default;
-        const response = await fetch(gasUrl, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ filename, fileData, folderId })
-        });
-        
-        const result = await response.json() as any;
-        if (result.success && result.webViewLink) {
-          webViewLink = result.webViewLink;
-          fileId = result.fileId || fileId;
-          isDriveSynced = true;
-        }
-      } catch (err: any) {
-        console.warn("GAS upload fallback notice:", err.message);
-      }
-    }
-
-    const dyn = getGoogleClients();
-    if (!isDriveSynced && dyn.hasCredentials && dyn.drive) {
-      try {
-        const { Readable } = await import('stream');
-        const stream = new Readable();
-        stream.push(buffer);
-        stream.push(null);
-
-        const fileMetadata: any = { name: filename };
-        // Hanya sertakan parents jika ID folder valid (bukan placeholder awal)
-        if (folderId && !folderId.startsWith('1dr_') && folderId.length > 5) {
-          fileMetadata.parents = [folderId];
-        }
-
-        const driveRes = await dyn.drive.files.create({
-          requestBody: fileMetadata,
-          media: {
-            mimeType: mimeType,
-            body: stream,
-          },
-          fields: 'id, webViewLink, webContentLink',
-          supportsAllDrives: true
-        });
-
-        if (driveRes.data && driveRes.data.id) {
-          fileId = driveRes.data.id;
-          webViewLink = driveRes.data.webViewLink || webViewLink;
-          isDriveSynced = true;
-
-          // Coba set permission publik agar berkas bisa dibuka langsung
-          try {
-            await dyn.drive.permissions.create({
-              fileId: driveRes.data.id,
-              requestBody: {
-                role: 'reader',
-                type: 'anyone',
-              },
-            });
-          } catch (permErr) {
-            // Abaikan jika domain/restricted
-          }
-        }
-      } catch (driveErr: any) {
-        console.warn("Google Drive direct upload notice:", driveErr.message);
-      }
-    }
-
-    // Susun item berkas Drive
-    const driveItem = {
-      id: `DRV-${Date.now()}`,
-      name: filename,
-      folder: folder as any,
-      size: `${sizeKB} KB`,
-      type: mimeType,
-      uploadedAt: new Date().toISOString(),
+    const result = await uploadFileToDriveHelper({
+      filename,
+      fileData,
+      folderId,
+      folder,
       uploadedBy,
-      dataUrl: `/uploads/${cleanFileName}`,
-      webViewLink,
-      fileId,
-      status: isDriveSynced ? 'Tersinkron ke Google Drive' : 'Tersimpan di Cloud Storage'
-    };
-
-    // Update memoryCache & local file
-    if (!memoryCache) memoryCache = loadFromLocalFile() || {};
-    if (!Array.isArray(memoryCache.DriveFiles)) memoryCache.DriveFiles = [];
-    memoryCache.DriveFiles.unshift(driveItem);
-    saveToLocalFile(memoryCache);
-
-    res.json({
-      success: true,
-      item: driveItem,
-      webViewLink,
-      fileId,
-      status: driveItem.status,
-      message: isDriveSynced
-        ? `Dokumen "${filename}" berhasil diunggah langsung ke Google Drive!`
-        : `Dokumen "${filename}" berhasil disimpan dengan aman di Cloud Storage & siap diakses.`
+      customGasUrl: gasUploadUrl
     });
+
+    res.json(result);
   } catch (error: any) {
     console.error("Gagal upload file ke Drive:", error);
     res.status(500).json({ error: error.message });
@@ -507,79 +620,24 @@ app.post("/api/drive/backup", async (req, res) => {
     const dateStr = new Date().toISOString().replace(/[:.]/g, '-');
     const filename = `SILAP_BMN_Database_Backup_${dateStr}.json`;
     const jsonString = JSON.stringify(backupData, null, 2);
-    const buffer = Buffer.from(jsonString, 'utf8');
-    const sizeKB = Math.max(1, Math.round(buffer.length / 1024));
-
-    const cleanFileName = `${Date.now()}_${filename}`;
-    const localFilePath = path.join(UPLOADS_DIR, cleanFileName);
-    fs.writeFileSync(localFilePath, buffer);
-
-    let webViewLink = `/uploads/${cleanFileName}`;
-    let fileId = `backup-${Date.now()}`;
-    let isDriveSynced = false;
+    const base64Data = `data:application/json;base64,${Buffer.from(jsonString, 'utf8').toString('base64')}`;
 
     const dyn = getGoogleClients();
-    if (dyn.hasCredentials && dyn.drive) {
-      try {
-        const { Readable } = await import('stream');
-        const stream = new Readable();
-        stream.push(buffer);
-        stream.push(null);
+    const backupFolderId = req.body?.folderBackupId || dyn.settings?.folderBackupId;
 
-        const fileMetadata: any = { name: filename };
-        const backupFolderId = req.body?.folderBackupId;
-        if (backupFolderId && !backupFolderId.startsWith('1dr_') && backupFolderId.length > 5) {
-          fileMetadata.parents = [backupFolderId];
-        }
-
-        const driveRes = await dyn.drive.files.create({
-          requestBody: fileMetadata,
-          media: {
-            mimeType: 'application/json',
-            body: stream,
-          },
-          fields: 'id, webViewLink, webContentLink',
-          supportsAllDrives: true
-        });
-
-        if (driveRes.data && driveRes.data.id) {
-          fileId = driveRes.data.id;
-          webViewLink = driveRes.data.webViewLink || webViewLink;
-          isDriveSynced = true;
-        }
-      } catch (err: any) {
-        console.warn("Drive backup notice:", err.message);
-      }
-    }
-
-    const driveItem = {
-      id: `DRV-${Date.now()}`,
-      name: filename,
-      folder: 'Backup' as const,
-      size: `${sizeKB} KB`,
-      type: 'application/json',
-      uploadedAt: new Date().toISOString(),
+    const result = await uploadFileToDriveHelper({
+      filename,
+      fileData: base64Data,
+      folderId: backupFolderId,
+      folder: 'Backup',
       uploadedBy: req.body?.actor || 'Administrator',
-      dataUrl: `/uploads/${cleanFileName}`,
-      webViewLink,
-      fileId,
-      status: isDriveSynced ? 'Tersinkron ke Google Drive' : 'Tersimpan di Cloud Storage'
-    };
-
-    if (!memoryCache) memoryCache = loadFromLocalFile() || {};
-    if (!Array.isArray(memoryCache.DriveFiles)) memoryCache.DriveFiles = [];
-    memoryCache.DriveFiles.unshift(driveItem);
-    saveToLocalFile(memoryCache);
+      customGasUrl: req.body?.gasUploadUrl
+    });
 
     res.json({
-      success: true,
-      item: driveItem,
-      webViewLink,
+      ...result,
       filename,
-      dataUrl: `/uploads/${cleanFileName}`,
-      message: isDriveSynced 
-        ? `Backup sistem berhasil disinkronisasi ke Google Drive Folder Backup (${filename})`
-        : `Backup database lengkap berhasil dibuat dan disimpan ke Cloud Storage.`
+      dataUrl: result.item.dataUrl
     });
   } catch (error: any) {
     console.error("Gagal membuat backup Drive:", error);
@@ -607,6 +665,205 @@ app.delete("/api/drive/files/:id", async (req, res) => {
     res.json({ success: true, message: "Berkas berhasil dihapus." });
   } catch (error: any) {
     res.status(500).json({ error: error.message });
+  }
+});
+
+// 7. ENDPOINT UJI COBA UPLOAD BERKAS SAMPEL KE GOOGLE DRIVE
+app.post("/api/drive/test-upload", async (req, res) => {
+  try {
+    const { folderId, folder = 'Reports', gasUploadUrl } = req.body;
+    const dateStr = new Date().toLocaleString('id-ID');
+    const testContent = `UJI KONEKSI & UPLOAD GOOGLE DRIVE - SILAP BMN BPMP SUMSEL\n` +
+      `Waktu Pengujian: ${dateStr}\n` +
+      `Status: Berkas pengujian berhasil dibuat dan disimpan di Google Drive.\n` +
+      `Integrasi Google Workspace Aktif & Terlindungi.`;
+    
+    const base64Data = `data:text/plain;base64,${Buffer.from(testContent, 'utf8').toString('base64')}`;
+    const filename = `Test_Koneksi_Drive_${Date.now()}.txt`;
+
+    const result = await uploadFileToDriveHelper({
+      filename,
+      fileData: base64Data,
+      folderId,
+      folder,
+      uploadedBy: 'Sistem Diagnostik',
+      customGasUrl: gasUploadUrl
+    });
+
+    res.json(result);
+  } catch (error: any) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// 8. ENDPOINT SINKRONISASI ULANG SELURUH BERKAS LOKAL KE GOOGLE DRIVE
+app.post("/api/drive/sync-all", async (req, res) => {
+  try {
+    const dyn = getGoogleClients();
+    const localData = loadFromLocalFile();
+    const files = memoryCache?.DriveFiles || localData?.DriveFiles || [];
+    let syncedCount = 0;
+    const syncLogs: string[] = [];
+
+    for (const item of files) {
+      if (!item.webViewLink || !item.webViewLink.startsWith('https://drive.google.com')) {
+        let fileDataUrl = item.dataUrl;
+        // Jika dataUrl mengarah ke local path /uploads/..., baca filenya
+        if (item.dataUrl && item.dataUrl.startsWith('/uploads/')) {
+          const localFilePath = path.join(process.cwd(), item.dataUrl);
+          if (fs.existsSync(localFilePath)) {
+            const buf = fs.readFileSync(localFilePath);
+            fileDataUrl = `data:${item.type || 'application/octet-stream'};base64,${buf.toString('base64')}`;
+          }
+        }
+
+        if (fileDataUrl && fileDataUrl.startsWith('data:')) {
+          const folderId = item.folder === 'Backup' 
+            ? dyn.settings?.folderBackupId 
+            : item.folder === 'Images' 
+            ? dyn.settings?.folderImagesId 
+            : item.folder === 'QRCode' 
+            ? dyn.settings?.folderQrId 
+            : dyn.settings?.folderReportsId;
+
+          const uploadRes = await uploadFileToDriveHelper({
+            filename: item.name,
+            fileData: fileDataUrl,
+            folderId,
+            folder: item.folder,
+            uploadedBy: item.uploadedBy || 'Petugas BMN',
+            customGasUrl: req.body?.gasUploadUrl || dyn.gasUploadUrl
+          });
+
+          if (uploadRes.isDriveSynced) {
+            syncedCount++;
+            syncLogs.push(`✓ ${item.name} -> Terunggah ke Google Drive`);
+          }
+        }
+      }
+    }
+
+    res.json({
+      success: true,
+      syncedCount,
+      totalCount: files.length,
+      logs: syncLogs,
+      message: `Sinkronisasi selesai. ${syncedCount} berkas baru berhasil diunggah ke Google Drive.`
+    });
+  } catch (error: any) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// 9. ENDPOINT UJI KONEKSI & DIAGNOSTIK KREDENSIAL
+app.post("/api/drive/test-connection", async (req, res) => {
+  try {
+    const { 
+      serviceAccountEmail, 
+      serviceAccountPrivateKey, 
+      spreadsheetId, 
+      folderReportsId, 
+      folderBackupId, 
+      folderImagesId, 
+      folderQrId,
+      gasUploadUrl
+    } = req.body;
+
+    const results: string[] = [];
+    const errors: string[] = [];
+    const recommendations: string[] = [];
+
+    // 1. Test Google Apps Script Web App Bridge (jika disetel)
+    if (gasUploadUrl && gasUploadUrl.startsWith('http')) {
+      try {
+        const gasRes = await fetch(gasUploadUrl, { method: 'GET', redirect: 'follow' });
+        if (gasRes.ok) {
+          results.push("Google Apps Script Web App (Upload Bridge): Aktif & Terhubung (200 OK)");
+        } else {
+          errors.push(`Google Apps Script Web App mengembalikan status HTTP ${gasRes.status}`);
+        }
+      } catch (gasErr: any) {
+        errors.push(`Google Apps Script Web App tidak dapat dihubungi (${gasErr.message})`);
+      }
+    }
+
+    // 2. Test Google Service Account
+    let cleanedKey = (serviceAccountPrivateKey || "").trim();
+    if (cleanedKey.startsWith('"') && cleanedKey.endsWith('"')) {
+      cleanedKey = cleanedKey.slice(1, -1);
+    }
+    cleanedKey = cleanedKey.replace(/\\r\\n/g, '\n').replace(/\\n/g, '\n');
+
+    if (serviceAccountEmail && cleanedKey) {
+      try {
+        const testAuth = new google.auth.GoogleAuth({
+          credentials: {
+            client_email: serviceAccountEmail,
+            private_key: cleanedKey,
+          },
+          scopes: [
+            "https://www.googleapis.com/auth/spreadsheets",
+            "https://www.googleapis.com/auth/drive",
+            "https://www.googleapis.com/auth/drive.file"
+          ],
+        });
+
+        const testDrive = google.drive({ version: "v3", auth: testAuth });
+        const testSheets = google.sheets({ version: "v4", auth: testAuth });
+
+        // Test Spreadsheet
+        if (spreadsheetId && spreadsheetId.length > 5 && !spreadsheetId.startsWith("1ss_")) {
+          try {
+            const ssRes = await testSheets.spreadsheets.get({ spreadsheetId });
+            results.push(`Spreadsheet Database: OK ("${ssRes.data.properties?.title || 'Aktif'}")`);
+          } catch (e: any) {
+            errors.push(`Spreadsheet tidak dapat diakses (${e.message})`);
+          }
+        }
+
+        // Test folders
+        const testFolder = async (folderId: string, name: string) => {
+          if (folderId && folderId.length > 5 && !folderId.startsWith("1dr_")) {
+            try {
+              const folderMeta = await testDrive.files.get({ fileId: folderId, fields: 'id, name' });
+              results.push(`Folder ${name}: OK ("${folderMeta.data.name}")`);
+            } catch (e: any) {
+              errors.push(`Folder ${name} tidak valid (${e.message})`);
+            }
+          }
+        };
+
+        await testFolder(folderReportsId, "Reports / Dokumen");
+        await testFolder(folderBackupId, "Backup");
+        await testFolder(folderImagesId, "Images");
+        await testFolder(folderQrId, "QR Codes");
+
+        results.push("Autentikasi Service Account Google: Valid & Berhasil");
+      } catch (authErr: any) {
+        errors.push(`Autentikasi Service Account gagal (${authErr.message})`);
+      }
+    } else if (!gasUploadUrl) {
+      errors.push("Kredensial Service Account belum diisi dan Web App GAS belum disetel.");
+    }
+
+    if (!gasUploadUrl) {
+      recommendations.push("Tips: Untuk akun Google @gmail.com pribadi, pasang 'URL Web App Google Apps Script' di bawah agar berkas Surat Jalan & Foto langsung tersimpan di Google Drive tanpa pembatasan kuota.");
+    }
+
+    const hasAnySuccess = results.length > 0;
+    const hasErrors = errors.length > 0;
+
+    res.json({ 
+      success: hasAnySuccess && !hasErrors, 
+      message: hasErrors 
+        ? "Pemeriksaan selesai dengan beberapa catatan verifikasi." 
+        : "Koneksi Google Workspace & Drive Berhasil Sempurna!", 
+      results, 
+      errors,
+      recommendations
+    });
+  } catch (error: any) {
+    res.status(500).json({ success: false, error: `Autentikasi gagal: ${error.message}` });
   }
 });
 

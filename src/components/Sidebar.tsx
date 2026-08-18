@@ -203,6 +203,10 @@ export default function Sidebar({
                 <SettingsIcon className="w-4 h-4 flex-shrink-0 text-blue-400" />
                 <span className={`transition-all duration-300 origin-left ${collapsed ? 'opacity-0 scale-95 w-0' : 'opacity-100 scale-100 w-auto'}`}>Pengaturan Sistem</span>
               </div>
+              <div onClick={() => handleNavClick('apps_script')} className={navItemClass('apps_script')}>
+                <CodeXml className="w-4 h-4 flex-shrink-0 text-amber-400" />
+                <span className={`transition-all duration-300 origin-left ${collapsed ? 'opacity-0 scale-95 w-0' : 'opacity-100 scale-100 w-auto'}`}>Integrasi Apps Script</span>
+              </div>
               <div onClick={() => handleNavClick('admin_control')} className={navItemClass('admin_control')}>
                 <ShieldAlert className="w-4 h-4 flex-shrink-0 text-red-500 animate-pulse" />
                 {!collapsed && <span className="font-bold text-red-400">Admin Control</span>}

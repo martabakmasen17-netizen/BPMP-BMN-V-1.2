@@ -20,6 +20,7 @@ import TransaksiKeluarView from './components/TransaksiKeluarView';
 import RiwayatView from './components/RiwayatView';
 import LaporanView from './components/LaporanView';
 import PengaturanView from './components/PengaturanView';
+import AppsScriptView from './components/AppsScriptView';
 import AuditLogView from './components/AuditLogView';
 import PegawaiView from './components/PegawaiView';
 import LoginView from './components/LoginView';
@@ -183,6 +184,43 @@ export default function App() {
     }, 6000);
     return () => clearTimeout(timer);
   }, [activeToast]);
+
+  // Auto-heal / Auto-sync missing categories from barangList into kategoriList
+  React.useEffect(() => {
+    if (!barangList || barangList.length === 0) return;
+
+    setKategoriList(prevCats => {
+      let hasNew = false;
+      const updatedCats = [...prevCats];
+
+      barangList.forEach(b => {
+        if (!b.kategori) return;
+        const catName = b.kategori.trim();
+        const catId = b.kategoriId?.trim();
+
+        // Cek apakah kategori sudah terdaftar berdasarkan ID atau Nama
+        const exists = updatedCats.some(
+          c => (catId && c.id === catId) || c.nama.toLowerCase() === catName.toLowerCase()
+        );
+
+        if (!exists) {
+          hasNew = true;
+          const newCatId = catId && catId !== '1010301001'
+            ? catId
+            : `CAT${Date.now().toString().slice(-5)}-${Math.floor(Math.random() * 100)}`;
+
+          updatedCats.push({
+            id: newCatId,
+            nama: catName,
+            deskripsi: `Kategori ${catName} (Disinkronkan otomatis)`,
+            qrCodeUrl: `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${newCatId}`
+          });
+        }
+      });
+
+      return hasNew ? updatedCats : prevCats;
+    });
+  }, [barangList]);
 
   const hasCache = typeof window !== 'undefined' && !!localStorage.getItem('bpmp_bmn_prod_clean_v4_cache_barangList');
   const [isLoading, setIsLoading] = useState(!hasCache);
@@ -518,37 +556,93 @@ const handler = setTimeout(async () => {
         const data = results.data as any[];
         if (!data || data.length === 0) return;
 
+        // Kami butuh referensi list terkini untuk membuat kategori & sequence ID
+        let currentCategories = [...kategoriList];
+
         setBarangList(prev => {
           const newBarangList = [...prev];
+          const newCategoryUpdates: Kategori[] = [];
           
           data.forEach(row => {
-            const rawId = row.id;
-            const kategoriId = row.kategoriId || '1010301001';
-            const kategori = row.kategori || 'Kategori Default';
-            const nama = row.nama || 'Barang Tanpa Nama';
+            let kategoriName = (row.kategori || row.Kategori || '').trim();
+            let kategoriId = (row.kategoriId || row.KategoriId || '').trim();
             
-            // Format ID jika belum digabungkan
-            const newId = rawId && rawId.includes('-') ? rawId : `${kategoriId}-${rawId}`;
+            // Default fallbacks
+            if (!kategoriName && !kategoriId) {
+              kategoriName = 'Kategori Default';
+              kategoriId = '1010301001';
+            }
             
-            // Cek apakah ID sudah ada
-            const existingIndex = newBarangList.findIndex(b => b.id === newId);
+            // Coba cari kategori yang sudah ada berdasarkan ID atau Nama
+            let existingCat = currentCategories.find(c => c.id === kategoriId);
+            if (!existingCat && kategoriName) {
+              existingCat = currentCategories.find(c => c.nama.toLowerCase() === kategoriName.toLowerCase());
+            }
+            
+            if (existingCat) {
+              kategoriId = existingCat.id;
+              kategoriName = existingCat.nama;
+            } else {
+              // Jika belum ada, buat kategori baru secara otomatis
+              if (!kategoriName) kategoriName = `Kategori ${kategoriId}`;
+              if (!kategoriId) {
+                // Generate ID unik untuk kategori baru
+                const timestamp = Date.now().toString();
+                kategoriId = `CAT${timestamp.substring(timestamp.length - 6)}-${Math.floor(Math.random() * 1000)}`;
+              }
+              const newCat = {
+                id: kategoriId,
+                nama: kategoriName,
+                deskripsi: `Kategori ${kategoriName} dibuat otomatis dari import CSV`,
+                qrCodeUrl: `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${kategoriId}`
+              };
+              currentCategories.push(newCat);
+              newCategoryUpdates.push(newCat);
+            }
+            
+            // Menentukan ID Barang (Baru atau Update)
+            let rawId = (row.id || row.Id || row.ID || '').trim();
+            let finalId = '';
+            
+            if (rawId) {
+              // Jika CSV menyertakan ID, kita gunakan
+              finalId = rawId.includes('-') ? rawId : `${kategoriId}-${rawId}`;
+            } else {
+              // Generate ID otomatis sesuai sequence tertinggi di kategori tersebut
+              const sameCatItems = newBarangList.filter(b => b.kategoriId === kategoriId);
+              let maxSequence = 0;
+              sameCatItems.forEach(b => {
+                const parts = b.id.split('-');
+                const seqStr = parts.length > 1 ? parts[1] : b.id;
+                const seq = parseInt(seqStr, 10);
+                if (!isNaN(seq) && seq > maxSequence) {
+                  maxSequence = seq;
+                }
+              });
+              const sequence = String(maxSequence + 1).padStart(6, '0');
+              finalId = `${kategoriId}-${sequence}`;
+            }
+            
+            const existingIndex = newBarangList.findIndex(b => b.id === finalId);
             const newItem: Barang = {
-              id: newId,
-              kategoriId,
-              kategori,
-              nama,
-              supplier: row.supplier || 'PT Internal',
-              satuan: row.satuan || 'Buah',
-              stokSekarang: Number(row.stokSekarang) || 0,
-              stokMin: Number(row.stokMin) || 0,
-              stokMaks: Number(row.stokMaks) || 100,
-              deskripsi: row.deskripsi || '',
-              imageUrl: row.imageUrl || 'https://images.unsplash.com/photo-1586075010923-2dd4570fb338?auto=format&fit=crop&q=80&w=200',
+              id: finalId,
+              kategoriId: kategoriId,
+              kategori: kategoriName,
+              nama: row.nama || row.Nama || 'Barang Tanpa Nama',
+              supplier: row.supplier || row.Supplier || 'PT Internal',
+              satuan: row.satuan || row.Satuan || 'Buah',
+              stokSekarang: Number(row.stokSekarang || row.StokSekarang || row.stok_sekarang) || 0,
+              stokMin: Number(row.stokMin || row.StokMin || row.stok_min) || 0,
+              stokMaks: Number(row.stokMaks || row.StokMaks || row.stok_maks) || 100,
+              deskripsi: row.deskripsi || row.Deskripsi || '',
+              imageUrl: row.imageUrl || row.ImageUrl || 'https://images.unsplash.com/photo-1586075010923-2dd4570fb338?auto=format&fit=crop&q=80&w=200',
               createdAt: new Date().toISOString(),
               updatedAt: new Date().toISOString()
             };
 
             if (existingIndex > -1) {
+              // Preserve original creation date if updating
+              newItem.createdAt = newBarangList[existingIndex].createdAt;
               newBarangList[existingIndex] = { ...newBarangList[existingIndex], ...newItem, updatedAt: new Date().toISOString() };
             } else {
               newBarangList.push(newItem);
@@ -556,25 +650,21 @@ const handler = setTimeout(async () => {
           });
           
           writeAuditLog('Import CSV', `Mengimpor ${data.length} barang dari file ${file.name}`);
-          return newBarangList;
-        });
 
-        // Tambahkan Kategori jika belum ada
-        setKategoriList(prev => {
-          const newCatList = [...prev];
-          data.forEach(row => {
-            const kategoriId = row.kategoriId;
-            const kategori = row.kategori;
-            if (kategoriId && kategori && !newCatList.some(k => k.id === kategoriId)) {
-              newCatList.push({
-                id: kategoriId,
-                nama: kategori,
-                deskripsi: `Kategori ${kategori} hasil import`,
-                qrCodeUrl: `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${kategoriId}`
+          // Update State Kategori jika ada tambahan kategori baru
+          if (newCategoryUpdates.length > 0) {
+            setKategoriList(prevCat => {
+              const mergedCats = [...prevCat];
+              newCategoryUpdates.forEach(uc => {
+                if (!mergedCats.some(mc => mc.id === uc.id)) {
+                  mergedCats.push(uc);
+                }
               });
-            }
-          });
-          return newCatList;
+              return mergedCats;
+            });
+          }
+          
+          return newBarangList;
         });
       },
       error: (err) => {
@@ -585,10 +675,24 @@ const handler = setTimeout(async () => {
   };
 
   const handleAddBarang = (item: Omit<Barang, 'createdAt' | 'updatedAt'> & { id?: string }) => {
-    const cat = kategoriList.find(k => k.nama === item.kategori || k.id === item.kategoriId);
-    const catCode = cat ? cat.id : (item.kategoriId || '1010301001');
+    let cat = kategoriList.find(k => k.nama.toLowerCase() === item.kategori?.toLowerCase() || k.id === item.kategoriId);
+    let catCode = cat ? cat.id : (item.kategoriId || '1010301001');
 
-    const sameCatItems = barangList.filter(b => b.kategoriId === catCode || b.kategori === item.kategori);
+    if (!cat && item.kategori) {
+      catCode = item.kategoriId && item.kategoriId !== '1010301001'
+        ? item.kategoriId
+        : `CAT${Date.now().toString().slice(-5)}-${Math.floor(Math.random() * 100)}`;
+
+      const newCat: Kategori = {
+        id: catCode,
+        nama: item.kategori,
+        deskripsi: `Kategori ${item.kategori} (Dibuat otomatis)`,
+        qrCodeUrl: `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${catCode}`
+      };
+      setKategoriList(prev => [...prev, newCat]);
+    }
+
+    const sameCatItems = barangList.filter(b => b.kategoriId === catCode || b.kategori.toLowerCase() === item.kategori.toLowerCase());
     
     let maxSequence = 0;
     sameCatItems.forEach(b => {
@@ -600,7 +704,6 @@ const handler = setTimeout(async () => {
       }
     });
     const sequence = String(maxSequence + 1).padStart(6, '0');
-    // Jika ID dari input form (item.id) sudah menyertakan kategori, gunakan itu, jika tidak buat yang unik secara global
     const newId = item.id && item.id.includes('-') ? item.id : (item.id ? `${catCode}-${item.id}` : `${catCode}-${sequence}`);
 
     const newBarang: Barang = {
@@ -615,7 +718,21 @@ const handler = setTimeout(async () => {
   };
 
   const handleEditBarang = (id: string, updated: Partial<Barang>) => {
-    setBarangList(prev => prev.map(b => (b.id === id ? { ...b, ...updated, updatedAt: new Date().toISOString() } : b)));
+    setBarangList(prev => prev.map(b => {
+      if (b.id !== id) return b;
+      let newKategori = updated.kategori || b.kategori;
+      let newKategoriId = updated.kategoriId || b.kategoriId;
+
+      if (updated.kategori) {
+        const cat = kategoriList.find(k => k.nama.toLowerCase() === updated.kategori?.toLowerCase() || k.id === updated.kategoriId);
+        if (cat) {
+          newKategoriId = cat.id;
+          newKategori = cat.nama;
+        }
+      }
+
+      return { ...b, ...updated, kategori: newKategori, kategoriId: newKategoriId, updatedAt: new Date().toISOString() };
+    }));
     writeAuditLog('Ubah Barang', `Mengubah spesifikasi katalog barang: "${updated.nama || id}"`);
   };
 
@@ -765,7 +882,8 @@ const handler = setTimeout(async () => {
             fileData: trans.fileData,
             folderId: settings.folderReportsId,
             folder: 'Reports',
-            uploadedBy: trans.petugas || currentUser?.nama || 'Petugas BMN'
+            uploadedBy: trans.petugas || currentUser?.nama || 'Petugas BMN',
+            gasUploadUrl: settings.gasUploadUrl
           })
         })
         .then(res => res.json())
@@ -1105,7 +1223,8 @@ const handler = setTimeout(async () => {
         body: JSON.stringify({
           ...backupSnapshot,
           folderBackupId: settings.folderBackupId,
-          actor: currentUserActor
+          actor: currentUserActor,
+          gasUploadUrl: settings.gasUploadUrl
         })
       });
       const data = await res.json();
@@ -1156,7 +1275,8 @@ const handler = setTimeout(async () => {
               fileData: fileDataUrl,
               folderId: folder === 'Backup' ? settings.folderBackupId : (folder === 'Images' ? settings.folderImagesId : settings.folderReportsId),
               folder,
-              uploadedBy: currentUser?.nama || 'Petugas BMN'
+              uploadedBy: currentUser?.nama || 'Petugas BMN',
+              gasUploadUrl: settings.gasUploadUrl
             })
           });
           const resData = await res.json();
@@ -1602,6 +1722,10 @@ const handler = setTimeout(async () => {
                     </div>
                   </div>
                 )
+              )}
+
+              {activeTab === 'apps_script' && (
+                <AppsScriptView />
               )}
 
               {activeTab === 'audit_log' && (

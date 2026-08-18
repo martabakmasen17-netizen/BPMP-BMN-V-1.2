@@ -175,6 +175,7 @@ export interface Settings {
   spreadsheetId: string;
   serviceAccountEmail?: string;
   serviceAccountPrivateKey?: string;
+  gasUploadUrl?: string;
   bilaStokRendahNotif: boolean;
   bilaStokHabisNotif: boolean;
   konfirmasiOtomatisKeluar?: boolean;

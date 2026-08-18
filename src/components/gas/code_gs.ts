@@ -14,15 +14,83 @@ export const CODE_GS_CONTENT = `/**
  */
 
 /**
- * Menghandle request masuk dan merender file Index.html ke browser.
+ * Menghandle request masuk dan merender file Index.html ke browser atau API Ping.
  */
-function doGet() {
+function doGet(e) {
+  // Jika dipanggil via API atau query ping
+  if (e && e.parameter && e.parameter.api === "ping") {
+    return ContentService.createTextOutput(JSON.stringify({
+      status: "ok",
+      message: "Google Apps Script Drive Bridge Active",
+      timestamp: new Date().toISOString()
+    })).setMimeType(ContentService.MimeType.JSON);
+  }
+
   const htmlOutput = HtmlService.createTemplateFromFile("Index");
   return htmlOutput.evaluate()
     .setTitle("Sistem Informasi Monitoring Persediaan Barang - BPMP Sumsel")
     .setFaviconUrl("https://upload.wikimedia.org/wikipedia/commons/9/9c/Logo_Kementerian_Pendidikan_dan_Kemudayaan.png")
     .addMetaTag("viewport", "width=device-width, initial-scale=1.0")
     .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
+}
+
+/**
+ * Menghandle REST API POST request untuk upload berkas langsung ke Google Drive
+ */
+function doPost(e) {
+  try {
+    var raw = e.postData ? e.postData.contents : "{}";
+    var data = JSON.parse(raw);
+    var filename = data.filename || ("file_" + new Date().getTime());
+    var fileData = data.fileData || "";
+    var folderId = data.folderId;
+    
+    var contentType = "application/octet-stream";
+    var base64Content = fileData;
+    
+    if (fileData.indexOf("data:") === 0 && fileData.indexOf(";base64,") !== -1) {
+      var parts = fileData.split(";base64,");
+      contentType = parts[0].replace("data:", "");
+      base64Content = parts[1];
+    }
+    
+    var decoded = Utilities.base64Decode(base64Content);
+    var blob = Utilities.newBlob(decoded, contentType, filename);
+    
+    var folder;
+    if (folderId && folderId.length > 5 && !folderId.startsWith("1dr_")) {
+      try {
+        folder = DriveApp.getFolderById(folderId);
+      } catch(fErr) {
+        folder = DriveApp.getRootFolder();
+      }
+    } else {
+      folder = DriveApp.getRootFolder();
+    }
+    
+    var file = folder.createFile(blob);
+    try {
+      file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+    } catch(permErr) {}
+    
+    var output = {
+      success: true,
+      fileId: file.getId(),
+      name: file.getName(),
+      webViewLink: file.getUrl(),
+      downloadUrl: "https://drive.google.com/uc?export=download&id=" + file.getId(),
+      folderName: folder.getName(),
+      size: file.getSize()
+    };
+    
+    return ContentService.createTextOutput(JSON.stringify(output))
+      .setMimeType(ContentService.MimeType.JSON);
+  } catch(err) {
+    return ContentService.createTextOutput(JSON.stringify({
+      success: false,
+      error: err.toString()
+    })).setMimeType(ContentService.MimeType.JSON);
+  }
 }
 
 /**
