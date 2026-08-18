@@ -133,40 +133,96 @@ const SHEET_NAMES = [
   "BarangMasuk", "BarangKeluar", "Riwayat", "AuditLog", "Accounts", "Settings", "Notifications", "DriveFiles"
 ];
 
-// Helper: Ubah Array of Objects menjadi 2D Array untuk Spreadsheet
-const jsonToSheetData = (jsonArray: any[]) => {
-  if (!jsonArray || jsonArray.length === 0) return [[]];
-  
-  // Ambil keys dari object pertama sebagai header
-  const headers = Object.keys(jsonArray[0]);
+// Schema Header Lengkap untuk Setiap Entitas (Menjamin Seluruh Kolom Termasuk Barang & Kategori Tersimpan Sempurna)
+const ENTITY_HEADERS: Record<string, string[]> = {
+  Barang: [
+    "id", "kategoriId", "kategori", "nama", "supplier", "satuan",
+    "stokSekarang", "stokMin", "stokMaks", "deskripsi", "imageUrl",
+    "lokasiRak", "lokasi", "createdAt", "updatedAt"
+  ],
+  Kategori: [
+    "id", "nama", "deskripsi", "qrCodeUrl"
+  ],
+  Supplier: [
+    "id", "nama", "kontak", "telepon", "alamat"
+  ],
+  Unit: [
+    "id", "nama", "penanggungJawab", "keterangan"
+  ],
+  Satuan: [
+    "id", "nama", "keterangan", "tipe", "faktorKonversi", "satuanDasar", "rekomendasiStokMin", "rekomendasiStokMaks"
+  ],
+  Pegawai: [
+    "id", "nama", "nip", "jabatan", "unitKerja", "telepon", "email", "status"
+  ],
+  BarangMasuk: [
+    "id", "tanggal", "barangId", "namaBarang", "jumlah", "supplier", "petugas", "fileDokumen", "catatan", "isSusulan", "keteranganSusulan", "waktuInputSistem"
+  ],
+  BarangKeluar: [
+    "id", "tanggal", "barangId", "namaBarang", "jumlah", "unitId", "petugas", "keperluan", "statusPersetujuan", "fileDokumen", "driveLink", "catatan", "isSusulan", "keteranganSusulan", "waktuInputSistem"
+  ],
+  Riwayat: [
+    "id", "tanggal", "tipe", "barangId", "namaBarang", "jumlah", "referensi", "petugas", "keterangan"
+  ],
+  AuditLog: [
+    "id", "tanggal", "aktor", "role", "aksi", "detail"
+  ],
+  Accounts: [
+    "id", "username", "password", "nama", "role", "nip", "jabatan", "telepon", "avatar", "status"
+  ],
+  Settings: [
+    "namaInstitusi", "subHeaderKop", "alamatKop", "kontakKop", "namaPenanggungJawab", "jabatanPenanggungJawab", "nipPenanggungJawab", "logoUrl", "prefiksKodeBarang", "defaultStokMin", "autoSyncIntervalSec", "folderQrId", "folderImagesId", "folderReportsId", "folderBackupId", "spreadsheetId", "serviceAccountEmail", "serviceAccountPrivateKey", "gasUploadUrl", "bilaStokRendahNotif", "bilaStokHabisNotif", "konfirmasiOtomatisKeluar"
+  ],
+  Notifications: [
+    "id", "judul", "pesan", "tipe", "tanggal", "dibaca", "targetRole", "actorName", "linkTo"
+  ],
+  DriveFiles: [
+    "id", "name", "folder", "size", "type", "uploadedAt", "url", "driveId"
+  ]
+};
+
+// Helper: Ubah Array of Objects menjadi 2D Array untuk Spreadsheet (Dengan Header Komprehensif)
+const jsonToSheetData = (jsonArray: any[], sheetName?: string) => {
+  if (!jsonArray) jsonArray = [];
+
+  const headerSet = new Set<string>(sheetName && ENTITY_HEADERS[sheetName] ? ENTITY_HEADERS[sheetName] : []);
+
+  jsonArray.forEach(obj => {
+    if (obj && typeof obj === 'object') {
+      Object.keys(obj).forEach(k => headerSet.add(k));
+    }
+  });
+
+  const headers = Array.from(headerSet);
+  if (headers.length === 0) return [[]];
+
   const rows = jsonArray.map(obj => {
+    if (!obj || typeof obj !== 'object') return headers.map(() => "");
     return headers.map(header => {
-      // Abaikan data binary/base64 besar agar tidak melebihi batas 50,000 karakter sel Google Sheets
       if (header === 'fileData' || header === 'dataUrl') {
         return "";
       }
       let val = obj[header];
+      if (val === null || val === undefined) {
+        return "";
+      }
       if (typeof val === 'object' || Array.isArray(val)) {
         val = JSON.stringify(val);
       }
-      if (val !== null && val !== undefined) {
-        let strVal = String(val);
-        // Batas maksimum sel Google Sheets adalah 50.000 karakter
-        if (strVal.length > 45000) {
-          strVal = strVal.substring(0, 45000);
-        }
-        return strVal;
+      let strVal = String(val);
+      if (strVal.length > 45000) {
+        strVal = strVal.substring(0, 45000);
       }
-      return "";
+      return strVal;
     });
   });
-  
+
   return [headers, ...rows];
 };
 
 // Helper: Ubah 2D Array dari Spreadsheet menjadi Array of Objects
 const NUMERIC_FIELDS = new Set([
-  "stokSekarang", "stokMin", "stokMaks", "jumlah", "harga", "diskon"
+  "stokSekarang", "stokMin", "stokMaks", "stokAwal", "jumlah", "harga", "diskon", "faktorKonversi", "rekomendasiStokMin", "rekomendasiStokMaks", "autoSyncIntervalSec"
 ]);
 
 const sheetDataToJson = (rows: any[][]) => {
@@ -177,10 +233,10 @@ const sheetDataToJson = (rows: any[][]) => {
     const obj: any = {};
     headers.forEach((header, index) => {
       let val = row[index] !== undefined && row[index] !== null ? row[index] : "";
-      // Convert boolean string back to boolean if needed, or parse JSON
       if (val === "true") val = true;
       else if (val === "false") val = false;
-      else if (typeof val === 'string' && (val.startsWith("[") || val.startsWith("{"))) {
+      else if (val === "null") val = "";
+      else if (typeof val === 'string' && (val.trim().startsWith("[") || val.trim().startsWith("{"))) {
         try { val = JSON.parse(val); } catch (e) {}
       } else if (NUMERIC_FIELDS.has(header) && !isNaN(Number(val)) && val !== "") {
         val = Number(val);
@@ -197,30 +253,18 @@ const sheetDataToJson = (rows: any[][]) => {
 // ENDPOINT UNTUK SYNC DATA KE SPREADSHEET
 // ==========================================
 
-
-// ==========================================
-// IN-MEMORY CACHE & RATE LIMIT COOLDOWN UNTUK MENGURANGI KUOTA SPREADSHEET
-// ==========================================
+// IN-MEMORY CACHE
 let memoryCache: any = null;
 let memoryVersion = 0;
 let lastRemoteFetchTime = 0;
-let rateLimitCooldownUntil = 0;
 let cachedExistingSheets: string[] | null = null;
-
-const isPlaceholderId = (id?: string) => {
-  if (!id) return true;
-  const clean = id.trim();
-  if (clean.startsWith('1ss_') || clean.startsWith('1dr_') || clean.includes('dummy') || clean.includes('placeholder')) {
-    return true;
-  }
-  return false;
-};
+let lastSpreadsheetIdUsed: string | null = null;
 
 app.get("/api/sync/version", (req, res) => {
   res.json({ version: memoryVersion });
 });
 
-// 1. MENGAMBIL SELURUH DATA DARI SPREADSHEET ATAU LOCAL FILE (Batch Read Optimised)
+// 1. MENGAMBIL SELURUH DATA DARI SPREADSHEET ATAU LOCAL FILE
 app.get("/api/sync", async (req, res) => {
   try {
     const now = Date.now();
@@ -232,75 +276,49 @@ app.get("/api/sync", async (req, res) => {
     const dyn = getGoogleClients();
     const currentSpreadsheetId = dyn.spreadsheetId || SPREADSHEET_ID;
 
-    if (!currentSpreadsheetId || isPlaceholderId(currentSpreadsheetId) || !dyn.hasCredentials || !dyn.sheets || now < rateLimitCooldownUntil) {
-      return res.json(memoryCache || localData || {});
-    }
-
-    if (memoryCache && req.query.force !== '1') {
-      return res.json(memoryCache);
-    }
-
-    if (memoryCache && (now - lastRemoteFetchTime < 15000)) {
-      return res.json(memoryCache);
-    }
-
-    try {
-      if (!cachedExistingSheets) {
-        const spreadsheet = await dyn.sheets.spreadsheets.get({
-          spreadsheetId: currentSpreadsheetId,
-        });
-        cachedExistingSheets = spreadsheet.data.sheets?.map(s => s.properties?.title || "") || [];
-      }
-      
-      const sheetsToFetch = SHEET_NAMES.filter(name => cachedExistingSheets?.includes(name));
-      const allData: any = {};
-
-      if (sheetsToFetch.length > 0) {
-        const batchResponse = await dyn.sheets.spreadsheets.values.batchGet({
-          spreadsheetId: currentSpreadsheetId,
-          ranges: sheetsToFetch.map(s => `${s}!A1:Z`),
-        });
-
-        const valueRanges = batchResponse.data.valueRanges || [];
-        sheetsToFetch.forEach((sheetName, idx) => {
-          const vr = valueRanges[idx];
-          if (vr && vr.values) {
-            allData[sheetName] = sheetDataToJson(vr.values);
-          } else {
-            allData[sheetName] = memoryCache?.[sheetName] || [];
-          }
-        });
-
-        // Fill remaining empty sheets
-        SHEET_NAMES.forEach(name => {
-          if (!allData[name]) allData[name] = memoryCache?.[name] || [];
-        });
-
-        lastRemoteFetchTime = now;
-        if (Object.keys(allData).length > 0) {
-          memoryCache = allData;
-          saveToLocalFile(allData);
+    // Jika spreadsheet ID dan credentials lengkap, coba ambil dari Google Sheets
+    if (currentSpreadsheetId && dyn.hasCredentials && dyn.sheets) {
+      try {
+        if (!cachedExistingSheets || lastSpreadsheetIdUsed !== currentSpreadsheetId) {
+          const spreadsheet = await dyn.sheets.spreadsheets.get({
+            spreadsheetId: currentSpreadsheetId,
+          });
+          cachedExistingSheets = spreadsheet.data.sheets?.map(s => s.properties?.title || "") || [];
+          lastSpreadsheetIdUsed = currentSpreadsheetId;
         }
-      }
-    } catch (sheetErr: any) {
-      const isQuotaError = sheetErr.status === 429 || 
-        sheetErr.code === 429 || 
-        (sheetErr.message && sheetErr.message.includes("Quota exceeded"));
+        
+        const sheetsToFetch = SHEET_NAMES.filter(name => cachedExistingSheets?.includes(name));
+        const allData: any = {};
 
-      const isNotFoundError = sheetErr.status === 404 ||
-        sheetErr.code === 404 ||
-        (sheetErr.message && (sheetErr.message.includes("Requested entity was not found") || sheetErr.message.includes("File not found")));
-      
-      if (isQuotaError) {
-        // Activate 60-second cooldown on quota error so we don't spam Google Sheets API
-        rateLimitCooldownUntil = Date.now() + 60000;
-        console.warn("[Sync Engine] Google Sheets API rate limit reached. Auto-switching to high-performance local store for 60s.");
-      } else if (isNotFoundError) {
-        // Cooldown for 5 minutes when spreadsheet ID is dummy/not found
-        rateLimitCooldownUntil = Date.now() + 300000;
-        console.info("[Sync Engine] Spreadsheet ID not found or access denied. Using local storage mode.");
-      } else {
-        console.warn("Spreadsheet error, falling back to local file store:", sheetErr.message);
+        if (sheetsToFetch.length > 0) {
+          const batchResponse = await dyn.sheets.spreadsheets.values.batchGet({
+            spreadsheetId: currentSpreadsheetId,
+            ranges: sheetsToFetch.map(s => `${s}!A1:Z`),
+          });
+
+          const valueRanges = batchResponse.data.valueRanges || [];
+          sheetsToFetch.forEach((sheetName, idx) => {
+            const vr = valueRanges[idx];
+            if (vr && vr.values && vr.values.length > 0) {
+              allData[sheetName] = sheetDataToJson(vr.values);
+            } else {
+              allData[sheetName] = memoryCache?.[sheetName] || localData?.[sheetName] || [];
+            }
+          });
+
+          // Lengkapi sheet yang belum ada
+          SHEET_NAMES.forEach(name => {
+            if (!allData[name]) allData[name] = memoryCache?.[name] || localData?.[name] || [];
+          });
+
+          lastRemoteFetchTime = now;
+          if (Object.keys(allData).length > 0) {
+            memoryCache = allData;
+            saveToLocalFile(allData);
+          }
+        }
+      } catch (sheetErr: any) {
+        console.warn("[Sync Engine] Gagal mengambil dari Google Sheets, menggunakan data lokal:", sheetErr.message);
       }
     }
 
@@ -317,17 +335,21 @@ app.post("/api/sync", async (req, res) => {
   try {
     const incomingData = req.body;
 
-    // Save locally first to guarantee zero data loss
+    // Simpan ke memori dan file lokal secara instant agar data 100% aman
     memoryCache = incomingData;
     memoryVersion++;
     saveToLocalFile(incomingData);
 
-    const now = Date.now();
-    
     const dyn = getGoogleClients();
     const currentSpreadsheetId = dyn.spreadsheetId || SPREADSHEET_ID;
 
-    if (currentSpreadsheetId && !isPlaceholderId(currentSpreadsheetId) && dyn.hasCredentials && dyn.sheets && now >= rateLimitCooldownUntil) {
+    if (lastSpreadsheetIdUsed !== currentSpreadsheetId) {
+      cachedExistingSheets = null;
+      lastSpreadsheetIdUsed = currentSpreadsheetId;
+    }
+
+    // Jika spreadsheet ID dan credentials lengkap, simpan ke Google Sheets
+    if (currentSpreadsheetId && dyn.hasCredentials && dyn.sheets) {
       try {
         if (!cachedExistingSheets) {
           const spreadsheet = await dyn.sheets.spreadsheets.get({
@@ -354,14 +376,16 @@ app.post("/api/sync", async (req, res) => {
         const clearRanges: string[] = [];
         
         for (const sheetName of SHEET_NAMES) {
-          if (incomingData[sheetName]) {
+          if (incomingData[sheetName] !== undefined) {
             const dataForSheet = incomingData[sheetName];
             let values = [[]];
             
-            if (Array.isArray(dataForSheet) && dataForSheet.length > 0) {
-              values = jsonToSheetData(dataForSheet);
-            } else if (typeof dataForSheet === 'object' && Object.keys(dataForSheet).length > 0) {
-              values = jsonToSheetData([dataForSheet]);
+            if (Array.isArray(dataForSheet)) {
+              values = jsonToSheetData(dataForSheet, sheetName);
+            } else if (dataForSheet && typeof dataForSheet === 'object' && Object.keys(dataForSheet).length > 0) {
+              values = jsonToSheetData([dataForSheet], sheetName);
+            } else {
+              values = jsonToSheetData([], sheetName);
             }
             
             clearRanges.push(`${sheetName}!A1:Z`);
@@ -389,23 +413,7 @@ app.post("/api/sync", async (req, res) => {
           });
         }
       } catch (sheetErr: any) {
-        const isQuotaError = sheetErr.status === 429 || 
-          sheetErr.code === 429 || 
-          (sheetErr.message && sheetErr.message.includes("Quota exceeded"));
-
-        const isNotFoundError = sheetErr.status === 404 || 
-          sheetErr.code === 404 || 
-          (sheetErr.message && (sheetErr.message.includes("Requested entity was not found") || sheetErr.message.includes("File not found")));
-
-        if (isQuotaError) {
-          rateLimitCooldownUntil = Date.now() + 60000;
-          console.warn("[Sync Engine] Spreadsheet save queued/skipped remotely due to Google API rate limit. Data is safely stored locally.");
-        } else if (isNotFoundError) {
-          rateLimitCooldownUntil = Date.now() + 300000;
-          console.info("[Sync Engine] Spreadsheet ID not found or access denied. Data is safely stored locally.");
-        } else {
-          console.warn("Spreadsheet save skipped/failed, data saved locally:", sheetErr.message);
-        }
+        console.warn("[Sync Engine] Peringatan saat menyimpan ke Google Sheets (Data tetap tersimpan di lokal):", sheetErr.message);
       }
     }
 
